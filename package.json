@@ -1,0 +1,20 @@
+{
+  "name": "odyssey",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed, evidence-led Hyperchart report engine with a deterministic self-contained HTML renderer.",
+  "type": "module",
+  "scripts": {
+    "render:example": "mkdir -p artifacts && DOCUMENT_FILE=examples/eink/report-document.json OUTPUT_PATH=artifacts/eink-report.html node engine/render-report.mjs",
+    "test:renderer": "node --test tests/renderer.test.mjs",
+    "test:eink": "npm run render:example && HTML_FILE=artifacts/eink-report.html OUTPUT_DIR=artifacts/playwright node tests/renderer-playwright.mjs",
+    "test:workflow-fixture": "node tests/write-fixture.mjs",
+    "test": "npm run test:renderer && npm run test:eink && npm run test:workflow-fixture"
+  },
+  "dependencies": {
+    "echarts": "^6.0.0",
+    "playwright": "^1.61.1",
+    "preact": "^10.27.0",
+    "preact-render-to-string": "^6.6.0"
+  }
+}
