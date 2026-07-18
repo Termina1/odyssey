@@ -1,22 +1,22 @@
-import { readFile, mkdir, writeFile } from "node:fs/promises";
-import { dirname, extname, resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as echarts from "echarts";
-import {
-  buildChartModel,
-  escapeAttribute,
-  escapeHtml,
-  fieldMap,
-  formatModelValue,
-  imageMime,
-  sameLabel,
-  slug,
-  sourceUrl,
-  type ChartBlock,
-  type ChartModel,
-} from "./render-model.js";
-import { ReportDocument, type Dataset, type RichBlock } from "../contracts/index.js";
+import { type Dataset, ReportDocument, type RichBlock } from "../contracts/index.js";
 import { parseJsonFile, requiredEnv } from "../contracts/runtime.js";
+import {
+	buildChartModel,
+	type ChartBlock,
+	type ChartModel,
+	escapeAttribute,
+	escapeHtml,
+	fieldMap,
+	formatModelValue,
+	imageMime,
+	sameLabel,
+	slug,
+	sourceUrl,
+} from "./render-model.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cwd = process.cwd();
@@ -33,101 +33,154 @@ const chartOptions: Record<string, ChartModel["options"]> = {};
 const imageUris = new Map<string, string>();
 
 function readRelative(path: string): string {
-  return resolve(cwd, path);
+	return resolve(cwd, path);
 }
 
 async function loadImageUris(): Promise<void> {
-  for (const visual of document.visualInputs) {
-    if (visual.status !== "usable" || !visual.image?.localPath) continue;
-    const path = readRelative(visual.image.localPath);
-    const bytes = await readFile(path);
-    imageUris.set(visual.requestId, `data:${imageMime(path, visual.image.mimeType)};base64,${bytes.toString("base64")}`);
-  }
+	for (const visual of document.visualInputs) {
+		if (visual.status !== "usable" || !visual.image?.localPath) continue;
+		const path = readRelative(visual.image.localPath);
+		const bytes = await readFile(path);
+		imageUris.set(
+			visual.requestId,
+			`data:${imageMime(path, visual.image.mimeType)};base64,${bytes.toString("base64")}`,
+		);
+	}
 }
 
 function paragraphs(body: string): string {
-  return String(body ?? "").split(/\n\s*\n/).filter((text) => text.trim()).map((text) => `<p>${escapeHtml(text.trim())}</p>`).join("");
+	return String(body ?? "")
+		.split(/\n\s*\n/)
+		.filter((text) => text.trim())
+		.map((text) => `<p>${escapeHtml(text.trim())}</p>`)
+		.join("");
 }
 
 function citations(ids: string[] = []): string {
-  const links = ids.map((id) => {
-    const number = evidenceNumber.get(id);
-    const evidence = evidenceById.get(id);
-    if (!number) return `<span class="re-citation re-citation-missing" title="Unresolved evidence ${escapeAttribute(id)}">Evidence</span>`;
-    return `<a class="re-citation" href="#evidence-${slug(id)}" title="${escapeAttribute(evidence?.claim ?? id)}" aria-label="Evidence ${number}">[${number}]</a>`;
-  }).join("");
-  return links ? `<div class="re-citations" aria-label="Evidence citations">${links}</div>` : "";
+	const links = ids
+		.map((id) => {
+			const number = evidenceNumber.get(id);
+			const evidence = evidenceById.get(id);
+			if (!number)
+				return `<span class="re-citation re-citation-missing" title="Unresolved evidence ${escapeAttribute(id)}">Evidence</span>`;
+			return `<a class="re-citation" href="#evidence-${slug(id)}" title="${escapeAttribute(evidence?.claim ?? id)}" aria-label="Evidence ${number}">[${number}]</a>`;
+		})
+		.join("");
+	return links ? `<div class="re-citations" aria-label="Evidence citations">${links}</div>` : "";
 }
 
 function sourceLinks(sourceIds: string[] = []): string {
-  return sourceIds.map((sourceId) => {
-    const source = sourceById.get(sourceId);
-    if (!source) return `<span class="re-source-missing">${escapeHtml(sourceId)}</span>`;
-    const href = sourceUrl(source.url);
-    return `<a href="${escapeAttribute(href)}" target="_blank" rel="noreferrer">${escapeHtml(source.publisher || source.title)}</a>`;
-  }).join("");
+	return sourceIds
+		.map((sourceId) => {
+			const source = sourceById.get(sourceId);
+			if (!source) return `<span class="re-source-missing">${escapeHtml(sourceId)}</span>`;
+			const href = sourceUrl(source.url);
+			return `<a href="${escapeAttribute(href)}" target="_blank" rel="noreferrer">${escapeHtml(source.publisher || source.title)}</a>`;
+		})
+		.join("");
 }
 
-function fieldLabel(dataset: Dataset | null, key: string): string {
-  return fieldMap(dataset).get(key)?.label ?? key;
+function _fieldLabel(dataset: Dataset | null, key: string): string {
+	return fieldMap(dataset).get(key)?.label ?? key;
 }
 
 function makeChartModel(block: ChartBlock): ChartModel {
-  const visual = visualById.get(block.datasetRequestId);
-  if (!visual || visual.status !== "usable" || !visual.dataset) throw new Error(`Chart ${block.id} has no usable dataset ${block.datasetRequestId}`);
-  const model = buildChartModel(block, visual.dataset);
-  const chartId = `chart-${slug(block.id)}`;
-  model.chartId = chartId;
-  chartModels.set(chartId, model);
-  chartOptions[chartId] = model.options;
-  return model;
+	const visual = visualById.get(block.datasetRequestId);
+	if (visual?.status !== "usable" || !visual.dataset)
+		throw new Error(`Chart ${block.id} has no usable dataset ${block.datasetRequestId}`);
+	const model = buildChartModel(block, visual.dataset);
+	const chartId = `chart-${slug(block.id)}`;
+	model.chartId = chartId;
+	chartModels.set(chartId, model);
+	chartOptions[chartId] = model.options;
+	return model;
 }
 
 function renderChartDataTable(model: ChartModel): string {
-  const block = model.block;
-  if (!model.tableRows?.length) return "";
-  const series = model.seriesValues ?? [];
-  const firstHeader = model.kind === "sankey" ? "Flow" : model.kind === "heatmap" ? (model.valueField?.label ?? "Value") : (model.xField?.label ?? "Category");
-  const head = `<tr><th scope="col">${escapeHtml(firstHeader)}</th>${series.map((name) => `<th scope="col">${escapeHtml(name)}</th>`).join("")}</tr>`;
-  const rows = model.tableRows.map((row) => `<tr><th scope="row">${escapeHtml(row.category)}</th>${(row.values ?? []).map((value) => {
-    const raw = Array.isArray(value.value) ? value.value.join(", ") : value.value;
-    const text = Array.isArray(value.value) ? raw : formatModelValue(raw, model.normalized ? { unit: "%" } : (model.yField ?? model.valueField));
-    const forecast = value.forecast ? ` <span class="re-forecast-inline">forecast</span>` : "";
-    return `<td data-value="${escapeAttribute(raw)}">${escapeHtml(text)}${forecast}</td>`;
-  }).join("")}</tr>`).join("");
-  return `<details class="re-chart-data"><summary>Data table</summary><div class="re-table-wrap"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div></details>`;
+	const _block = model.block;
+	if (!model.tableRows?.length) return "";
+	const series = model.seriesValues ?? [];
+	const firstHeader =
+		model.kind === "sankey"
+			? "Flow"
+			: model.kind === "heatmap"
+				? (model.valueField?.label ?? "Value")
+				: (model.xField?.label ?? "Category");
+	const head = `<tr><th scope="col">${escapeHtml(firstHeader)}</th>${series.map((name) => `<th scope="col">${escapeHtml(name)}</th>`).join("")}</tr>`;
+	const rows = model.tableRows
+		.map(
+			(row) =>
+				`<tr><th scope="row">${escapeHtml(row.category)}</th>${(row.values ?? [])
+					.map((value) => {
+						const raw = Array.isArray(value.value) ? value.value.join(", ") : value.value;
+						const text = Array.isArray(value.value)
+							? raw
+							: formatModelValue(raw, model.normalized ? { unit: "%" } : (model.yField ?? model.valueField));
+						const forecast = value.forecast ? ` <span class="re-forecast-inline">forecast</span>` : "";
+						return `<td data-value="${escapeAttribute(raw)}">${escapeHtml(text)}${forecast}</td>`;
+					})
+					.join("")}</tr>`,
+		)
+		.join("");
+	return `<details class="re-chart-data"><summary>Data table</summary><div class="re-table-wrap"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div></details>`;
 }
 
 function chartSummary(model: ChartModel): string {
-  const block = model.block;
-  const rows = (model.tableRows ?? []).slice(0, 12).map((row) => {
-    const values = (row.values ?? []).filter((value) => !value.missing).map((value) => {
-      const raw = Array.isArray(value.value) ? value.value.join(", ") : value.value;
-      const formatted = Array.isArray(value.value) ? raw : formatModelValue(raw, model.normalized ? { unit: "%" } : (model.yField ?? model.valueField));
-      return `${value.series}: ${formatted}${value.forecast ? " (forecast)" : ""}`;
-    }).join("; ");
-    return `${row.category}: ${values}`;
-  });
-  return `${escapeHtml(block.title ?? "Chart")} — ${escapeHtml(rows.join(". "))}`;
+	const block = model.block;
+	const rows = (model.tableRows ?? []).slice(0, 12).map((row) => {
+		const values = (row.values ?? [])
+			.filter((value) => !value.missing)
+			.map((value) => {
+				const raw = Array.isArray(value.value) ? value.value.join(", ") : value.value;
+				const formatted = Array.isArray(value.value)
+					? raw
+					: formatModelValue(raw, model.normalized ? { unit: "%" } : (model.yField ?? model.valueField));
+				return `${value.series}: ${formatted}${value.forecast ? " (forecast)" : ""}`;
+			})
+			.join("; ");
+		return `${row.category}: ${values}`;
+	});
+	return `${escapeHtml(block.title ?? "Chart")} — ${escapeHtml(rows.join(". "))}`;
 }
 
 function renderChart(block: ChartBlock): string {
-  const model = makeChartModel(block);
-  const chartId = model.chartId ?? `chart-${slug(block.id)}`;
-  const svgChart = echarts.init(null, null, { renderer: "svg", ssr: true, width: 960, height: 430 });
-  svgChart.setOption(model.options as Parameters<typeof svgChart.setOption>[0]);
-  const svg = svgChart.renderToSVGString();
-  svgChart.dispose();
-  const controls = [];
-  if (block.interaction?.legendFilter && (model.seriesValues?.length ?? 0) > 1) {
-    controls.push(`<div class="re-legend-controls" role="group" aria-label="Filter series">${model.seriesValues.map((series) => `<button type="button" class="re-series-toggle" data-series="${escapeAttribute(series)}" aria-pressed="true"><span aria-hidden="true" class="re-series-swatch"></span>${escapeHtml(series)}</button>`).join("")}</div>`);
-  }
-  if (block.interaction?.zoom) controls.push(`<div class="re-chart-actions" role="group" aria-label="Chart zoom"><button type="button" data-zoom="out">−</button><button type="button" data-zoom="reset">Reset</button><button type="button" data-zoom="in">+</button></div>`);
-  const forecast = model.hasForecast ? `<span class="re-forecast-badge">Forecast / прогноз</span>` : "";
-  const annotations = (block.annotations ?? []).map((annotation) => `<p class="re-annotation"><strong>${escapeHtml(annotation.label ?? "Annotation")}</strong>${annotation.x !== undefined ? ` · ${escapeHtml(annotation.x)}` : ""}${annotation.y !== undefined ? ` · ${escapeHtml(annotation.y)}` : ""}</p>`).join("");
-  const excludedAnnotations = (model.excludedAnnotations ?? []).map((annotation) => `<p class="re-annotation re-annotation-excluded"><strong>Несопоставимый ориентир: ${escapeHtml(annotation.category)} — ${escapeHtml(formatModelValue(annotation.value, model.yField))}.</strong> ${escapeHtml(annotation.note)}</p>`).join("");
-  const interactionText = [block.interaction?.tooltip ? "tooltip" : "", block.interaction?.zoom ? "zoom" : "", block.interaction?.legendFilter && (model.seriesValues?.length ?? 0) > 1 ? "legend filter" : ""].filter(Boolean).join(", ");
-  return `<div class="re-chart-shell" data-chart="${escapeAttribute(chartId)}" data-chart-variant="${escapeAttribute(block.variant)}" aria-label="${escapeAttribute(block.title ?? "Chart")}">
+	const model = makeChartModel(block);
+	const chartId = model.chartId ?? `chart-${slug(block.id)}`;
+	const svgChart = echarts.init(null, null, { renderer: "svg", ssr: true, width: 960, height: 430 });
+	svgChart.setOption(model.options as Parameters<typeof svgChart.setOption>[0]);
+	const svg = svgChart.renderToSVGString();
+	svgChart.dispose();
+	const controls = [];
+	if (block.interaction?.legendFilter && (model.seriesValues?.length ?? 0) > 1) {
+		controls.push(
+			`<div class="re-legend-controls" role="group" aria-label="Filter series">${model.seriesValues.map((series) => `<button type="button" class="re-series-toggle" data-series="${escapeAttribute(series)}" aria-pressed="true"><span aria-hidden="true" class="re-series-swatch"></span>${escapeHtml(series)}</button>`).join("")}</div>`,
+		);
+	}
+	if (block.interaction?.zoom)
+		controls.push(
+			`<div class="re-chart-actions" role="group" aria-label="Chart zoom"><button type="button" data-zoom="out">−</button><button type="button" data-zoom="reset">Reset</button><button type="button" data-zoom="in">+</button></div>`,
+		);
+	const forecast = model.hasForecast ? `<span class="re-forecast-badge">Forecast / прогноз</span>` : "";
+	const annotations = (block.annotations ?? [])
+		.map(
+			(annotation) =>
+				`<p class="re-annotation"><strong>${escapeHtml(annotation.label ?? "Annotation")}</strong>${annotation.x !== undefined ? ` · ${escapeHtml(annotation.x)}` : ""}${annotation.y !== undefined ? ` · ${escapeHtml(annotation.y)}` : ""}</p>`,
+		)
+		.join("");
+	const excludedAnnotations = (model.excludedAnnotations ?? [])
+		.map(
+			(annotation) =>
+				`<p class="re-annotation re-annotation-excluded"><strong>Несопоставимый ориентир: ${escapeHtml(annotation.category)} — ${escapeHtml(formatModelValue(annotation.value, model.yField))}.</strong> ${escapeHtml(annotation.note)}</p>`,
+		)
+		.join("");
+	const interactionText = [
+		block.interaction?.tooltip ? "tooltip" : "",
+		block.interaction?.zoom ? "zoom" : "",
+		block.interaction?.legendFilter && (model.seriesValues?.length ?? 0) > 1 ? "legend filter" : "",
+	]
+		.filter(Boolean)
+		.join(", ");
+	return `<div class="re-chart-shell" data-chart="${escapeAttribute(chartId)}" data-chart-variant="${escapeAttribute(block.variant)}" aria-label="${escapeAttribute(block.title ?? "Chart")}">
     <div class="re-chart-meta">${forecast}${interactionText ? `<span class="re-interaction-hint">Interactive: ${escapeHtml(interactionText)}</span>` : ""}</div>
     ${controls.join("")}
     <div class="re-chart" id="${escapeAttribute(chartId)}" role="img" aria-label="${escapeAttribute(chartSummary(model))}">${svg}</div>
@@ -139,76 +192,134 @@ function renderChart(block: ChartBlock): string {
 }
 
 function renderMetricStrip(block: Extract<RichBlock, { type: "metric-strip" }>): string {
-  const visual = visualById.get(block.datasetRequestId);
-  if (!visual?.dataset) throw new Error(`Metric block ${block.id} has no usable dataset`);
-  const dataset = visual.dataset;
-  const fields = fieldMap(dataset);
-  const metrics = block.metrics.map((metric) => {
-    const matches = dataset.rows.filter((row) => Object.entries(metric.where).every(([key, value]) => row[key] === value));
-    if (matches.length !== 1) throw new Error(`Metric ${block.id}/${metric.label} resolved ${matches.length} rows`);
-    const value = matches[0][metric.valueField];
-    if (value === undefined || value === null || value === "") throw new Error(`Metric ${block.id}/${metric.label} has no value`);
-    const field = fields.get(metric.valueField);
-    return `<div class="re-metric"><strong data-metric-value="${escapeAttribute(value)}">${escapeHtml(value)}</strong>${field?.unit ? `<span class="re-metric-unit">${escapeHtml(field.unit)}</span>` : ""}<span>${escapeHtml(metric.label)}</span></div>`;
-  }).join("");
-  return `<div class="re-metrics">${metrics}</div>`;
+	const visual = visualById.get(block.datasetRequestId);
+	if (!visual?.dataset) throw new Error(`Metric block ${block.id} has no usable dataset`);
+	const dataset = visual.dataset;
+	const fields = fieldMap(dataset);
+	const metrics = block.metrics
+		.map((metric) => {
+			const matches = dataset.rows.filter((row) =>
+				Object.entries(metric.where).every(([key, value]) => row[key] === value),
+			);
+			if (matches.length !== 1) throw new Error(`Metric ${block.id}/${metric.label} resolved ${matches.length} rows`);
+			const value = matches[0][metric.valueField];
+			if (value === undefined || value === null || value === "")
+				throw new Error(`Metric ${block.id}/${metric.label} has no value`);
+			const field = fields.get(metric.valueField);
+			return `<div class="re-metric"><strong data-metric-value="${escapeAttribute(value)}">${escapeHtml(value)}</strong>${field?.unit ? `<span class="re-metric-unit">${escapeHtml(field.unit)}</span>` : ""}<span>${escapeHtml(metric.label)}</span></div>`;
+		})
+		.join("");
+	return `<div class="re-metrics">${metrics}</div>`;
 }
 
 function renderTable(block: Extract<RichBlock, { type: "table" }>): string {
-  const visual = visualById.get(block.datasetRequestId);
-  if (!visual?.dataset) throw new Error(`Table block ${block.id} has no usable dataset`);
-  const dataset = visual.dataset; const fields = fieldMap(dataset); const columns = block.columns ?? dataset.fields.map((field) => field.key);
-  const head = columns.map((key) => { const field = fields.get(key); return `<th scope="col">${escapeHtml(field?.label ?? key)}${field?.unit ? ` <span class="re-unit">(${escapeHtml(field.unit)})</span>` : ""}</th>`; }).join("");
-  const body = dataset.rows.map((row) => `<tr>${columns.map((key) => `<td>${escapeHtml(row[key] === undefined || row[key] === null ? "" : row[key])}</td>`).join("")}</tr>`).join("");
-  return `<div class="re-table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+	const visual = visualById.get(block.datasetRequestId);
+	if (!visual?.dataset) throw new Error(`Table block ${block.id} has no usable dataset`);
+	const dataset = visual.dataset;
+	const fields = fieldMap(dataset);
+	const columns = block.columns ?? dataset.fields.map((field) => field.key);
+	const head = columns
+		.map((key) => {
+			const field = fields.get(key);
+			return `<th scope="col">${escapeHtml(field?.label ?? key)}${field?.unit ? ` <span class="re-unit">(${escapeHtml(field.unit)})</span>` : ""}</th>`;
+		})
+		.join("");
+	const body = dataset.rows
+		.map(
+			(row) =>
+				`<tr>${columns.map((key) => `<td>${escapeHtml(row[key] === undefined || row[key] === null ? "" : row[key])}</td>`).join("")}</tr>`,
+		)
+		.join("");
+	return `<div class="re-table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function renderBlock(block: RichBlock, moduleHeadline: string): string {
-  const duplicateTitle = sameLabel(block.title, moduleHeadline);
-  let body = "";
-  if (block.type === "chart") body = renderChart(block);
-  else if (block.type === "metric-strip") body = renderMetricStrip(block);
-  else if (block.type === "table") body = renderTable(block);
-  else if (block.type === "comparison") body = `<div class="re-comparison">${(block.columns ?? []).map((column) => `<article><h5>${escapeHtml(column.title)}</h5>${paragraphs(column.body)}</article>`).join("")}</div>`;
-  else if (block.type === "timeline") body = `<ol class="re-timeline-items">${block.items.map((entry) => `<li><b>${escapeHtml(entry.label)}</b><span>${escapeHtml(entry.body)}</span></li>`).join("")}</ol>`;
-  else if (block.type === "flow") body = `<ol class="re-flow-items">${block.steps.map((entry) => `<li><b>${escapeHtml(entry.label)}</b><span>${escapeHtml(entry.body)}</span></li>`).join("")}</ol>`;
-  else if (block.type === "matrix") body = `<div class="re-matrix">${(block.cells ?? []).map((cell) => `<article><small>${escapeHtml(cell.x)} × ${escapeHtml(cell.y)}</small><h5>${escapeHtml(cell.title)}</h5><p>${escapeHtml(cell.body)}</p></article>`).join("")}</div>${block.annotations?.length ? `<ul class="re-matrix-notes">${block.annotations.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>` : ""}`;
-  else if (block.type === "callout") body = `<div class="re-callout re-callout-${escapeAttribute(block.tone ?? "insight")}" role="note">${paragraphs(block.body)}${block.bullets?.length ? `<ul>${block.bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}</div>`;
-  else if (block.type === "quote") body = `<blockquote><p>${escapeHtml(block.quote)}</p><cite>${escapeHtml(block.attribution)}</cite></blockquote>`;
-  else if (block.type === "image") {
-    const visual = visualById.get(block.imageRequestId);
-    if (!visual?.image || !imageUris.has(block.imageRequestId)) throw new Error(`Image block ${block.id} has no usable local image`);
-    body = `<figure><img src="${imageUris.get(block.imageRequestId)}" alt="${escapeAttribute(block.alt || visual.image.alt || "")}" loading="lazy"><figcaption>${escapeHtml(block.caption || visual.image.caption || "")}</figcaption></figure>`;
-  } else { const unsupported: never = block; throw new Error(`Unsupported block type ${String(unsupported)}`); }
-  return `<aside class="re-block re-block-${escapeAttribute(block.type)}" id="block-${escapeAttribute(slug(block.id))}"><header><span class="re-block-kind">${escapeHtml(block.type)}</span><h4${duplicateTitle ? " class=\"re-sr-only\"" : ""}>${escapeHtml(block.title)}</h4><p>${escapeHtml(block.purpose)}</p></header>${body}${citations(block.evidenceIds)}</aside>`;
+	const duplicateTitle = sameLabel(block.title, moduleHeadline);
+	let body = "";
+	if (block.type === "chart") body = renderChart(block);
+	else if (block.type === "metric-strip") body = renderMetricStrip(block);
+	else if (block.type === "table") body = renderTable(block);
+	else if (block.type === "comparison")
+		body = `<div class="re-comparison">${(block.columns ?? []).map((column) => `<article><h5>${escapeHtml(column.title)}</h5>${paragraphs(column.body)}</article>`).join("")}</div>`;
+	else if (block.type === "timeline")
+		body = `<ol class="re-timeline-items">${block.items.map((entry) => `<li><b>${escapeHtml(entry.label)}</b><span>${escapeHtml(entry.body)}</span></li>`).join("")}</ol>`;
+	else if (block.type === "flow")
+		body = `<ol class="re-flow-items">${block.steps.map((entry) => `<li><b>${escapeHtml(entry.label)}</b><span>${escapeHtml(entry.body)}</span></li>`).join("")}</ol>`;
+	else if (block.type === "matrix")
+		body = `<div class="re-matrix">${(block.cells ?? []).map((cell) => `<article><small>${escapeHtml(cell.x)} × ${escapeHtml(cell.y)}</small><h5>${escapeHtml(cell.title)}</h5><p>${escapeHtml(cell.body)}</p></article>`).join("")}</div>${block.annotations?.length ? `<ul class="re-matrix-notes">${block.annotations.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>` : ""}`;
+	else if (block.type === "callout")
+		body = `<div class="re-callout re-callout-${escapeAttribute(block.tone ?? "insight")}" role="note">${paragraphs(block.body)}${block.bullets?.length ? `<ul>${block.bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}</div>`;
+	else if (block.type === "quote")
+		body = `<blockquote><p>${escapeHtml(block.quote)}</p><cite>${escapeHtml(block.attribution)}</cite></blockquote>`;
+	else if (block.type === "image") {
+		const visual = visualById.get(block.imageRequestId);
+		if (!visual?.image || !imageUris.has(block.imageRequestId))
+			throw new Error(`Image block ${block.id} has no usable local image`);
+		body = `<figure><img src="${imageUris.get(block.imageRequestId)}" alt="${escapeAttribute(block.alt || visual.image.alt || "")}" loading="lazy"><figcaption>${escapeHtml(block.caption || visual.image.caption || "")}</figcaption></figure>`;
+	} else {
+		const unsupported: never = block;
+		throw new Error(`Unsupported block type ${String(unsupported)}`);
+	}
+	return `<aside class="re-block re-block-${escapeAttribute(block.type)}" id="block-${escapeAttribute(slug(block.id))}"><header><span class="re-block-kind">${escapeHtml(block.type)}</span><h4${duplicateTitle ? ' class="re-sr-only"' : ""}>${escapeHtml(block.title)}</h4><p>${escapeHtml(block.purpose)}</p></header>${body}${citations(block.evidenceIds)}</aside>`;
 }
 
 function renderSources(): string {
-  const evidenceEntries = (document.evidence?.evidence ?? []).map((entry) => `<article id="evidence-${escapeAttribute(slug(entry.id))}"><h3><span class="re-evidence-number">[${evidenceNumber.get(entry.id)}]</span> ${escapeHtml(entry.claim)}</h3>${entry.caveat ? `<p>${escapeHtml(entry.caveat)}</p>` : ""}<div class="re-source-links">${sourceLinks(entry.sourceIds)}</div></article>`).join("");
-  const sourceEntries = (document.evidence?.sources ?? []).map((source) => `<article id="source-${escapeAttribute(slug(source.id))}"><h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.publisher)}${source.date ? ` · ${escapeHtml(source.date)}` : ""}</p><a href="${escapeAttribute(sourceUrl(source.url))}" target="_blank" rel="noreferrer">${escapeHtml(source.url)}</a></article>`).join("");
-  return `<section class="re-sources" id="sources"><div class="re-source-intro"><span class="re-kicker">Traceability</span><h2>Evidence and sources</h2><p>Every claim and visual is linked to its evidence record. Forecasts, proxies, and measurement limits remain visible rather than being smoothed into a single market number.</p></div><div class="re-evidence-list">${evidenceEntries}</div><h2 class="re-source-index-title">Source index</h2><div class="re-source-list">${sourceEntries}</div></section>`;
+	const evidenceEntries = (document.evidence?.evidence ?? [])
+		.map(
+			(entry) =>
+				`<article id="evidence-${escapeAttribute(slug(entry.id))}"><h3><span class="re-evidence-number">[${evidenceNumber.get(entry.id)}]</span> ${escapeHtml(entry.claim)}</h3>${entry.caveat ? `<p>${escapeHtml(entry.caveat)}</p>` : ""}<div class="re-source-links">${sourceLinks(entry.sourceIds)}</div></article>`,
+		)
+		.join("");
+	const sourceEntries = (document.evidence?.sources ?? [])
+		.map(
+			(source) =>
+				`<article id="source-${escapeAttribute(slug(source.id))}"><h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.publisher)}${source.date ? ` · ${escapeHtml(source.date)}` : ""}</p><a href="${escapeAttribute(sourceUrl(source.url))}" target="_blank" rel="noreferrer">${escapeHtml(source.url)}</a></article>`,
+		)
+		.join("");
+	return `<section class="re-sources" id="sources"><div class="re-source-intro"><span class="re-kicker">Traceability</span><h2>Evidence and sources</h2><p>Every claim and visual is linked to its evidence record. Forecasts, proxies, and measurement limits remain visible rather than being smoothed into a single market number.</p></div><div class="re-evidence-list">${evidenceEntries}</div><h2 class="re-source-index-title">Source index</h2><div class="re-source-list">${sourceEntries}</div></section>`;
 }
 
 function renderDocument(): string {
-  const metaText = (key: string): string | undefined => {
-    const value = document.meta[key];
-    return typeof value === "string" ? value : undefined;
-  };
-  const title = metaText("title") ?? document.plan.title ?? "Report";
-  const thesis = metaText("thesis") ?? document.plan.thesis ?? "";
-  const readerQuestion = metaText("readerQuestion") ?? document.plan.readerQuestion ?? "";
-  const sections = (document.sections ?? []).map((section, sectionIndex) => {
-    const blocks = new Map((elementBySection.get(section.sectionId)?.blocks ?? []).map((block) => [block.id, block]));
-    const layout = document.experience?.sections?.[section.sectionId]?.layout ?? "essay";
-    const modules = (section.modules ?? []).map((module) => `<article class="re-module re-${escapeAttribute(module.layout)}" id="beat-${escapeAttribute(slug(module.beatId))}"><div class="re-copy"><h3>${escapeHtml(module.headline)}</h3><div class="re-prose">${paragraphs(module.body)}</div>${module.caveat ? `<aside class="re-caveat" role="note"><strong>Caveat</strong>${escapeHtml(module.caveat)}</aside>` : ""}${citations(module.evidenceIds)}</div>${module.blockIds?.length ? `<div class="re-visuals">${module.blockIds.map((id) => blocks.get(id)).filter((block): block is RichBlock => block !== undefined).map((block) => renderBlock(block, module.headline)).join("")}</div>` : ""}</article>`).join("");
-    return `<section class="re-section re-layout-${escapeAttribute(layout)}" id="section-${escapeAttribute(slug(section.sectionId))}"><header class="re-section-head"><span class="re-section-index">${String(sectionIndex + 1).padStart(2, "0")}</span><h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.dek)}</p><strong>${escapeHtml(section.openingClaim)}</strong></header>${modules}${section.handoff ? `<p class="re-handoff"><span>Continue</span><strong>${escapeHtml(section.handoff)}</strong><i aria-hidden="true">→</i></p>` : ""}</section>`;
-  }).join("");
-  const sectionList = document.sections;
-  const navLinks = sectionList.map((section, index) => `<a class="re-nav-link" data-section-index="${index}" data-section-title="${escapeAttribute(section.title)}" href="#section-${escapeAttribute(slug(section.sectionId))}"><span>${String(index + 1).padStart(2, "0")}</span>${escapeHtml(section.title)}</a>`).join("");
-  const nav = sectionList.length > 5
-    ? `<nav class="re-nav re-nav-compact" data-nav-mode="compact" data-section-count="${sectionList.length}" aria-label="Report sections"><div class="re-nav-compact-inner"><details class="re-toc"><summary>Содержание</summary><div class="re-toc-panel">${navLinks}</div></details><div class="re-current-section" aria-live="polite"><span data-current-index>01 / ${String(sectionList.length).padStart(2, "0")}</span><strong data-current-title>${escapeHtml(sectionList[0]?.title ?? "")}</strong></div><div class="re-nav-step"><a data-nav-prev aria-label="Previous chapter" aria-disabled="true">←</a><a data-nav-next href="#section-${escapeAttribute(slug(sectionList[1]?.sectionId ?? sectionList[0]?.sectionId ?? ""))}" aria-label="Next chapter">→</a></div></div><div class="re-reading-progress" aria-hidden="true"><i></i></div></nav>`
-    : `<nav class="re-nav" data-nav-mode="tabs" data-section-count="${sectionList.length}" aria-label="Report sections"><div class="re-nav-inner">${navLinks}</div></nav>`;
-  return `<div class="re-shell" data-odyssey="1"><header class="re-hero"><div class="re-hero-inner"><p class="re-eyebrow">Evidence-led report · typed renderer</p><h1>${escapeHtml(title)}</h1><p class="re-thesis">${escapeHtml(thesis)}</p><p class="re-question"><span>Reader question</span>${escapeHtml(readerQuestion)}</p></div></header>${nav}<main>${sections}</main>${renderSources()}</div>`;
+	const metaText = (key: string): string | undefined => {
+		const value = document.meta[key];
+		return typeof value === "string" ? value : undefined;
+	};
+	const title = metaText("title") ?? document.plan.title ?? "Report";
+	const thesis = metaText("thesis") ?? document.plan.thesis ?? "";
+	const readerQuestion = metaText("readerQuestion") ?? document.plan.readerQuestion ?? "";
+	const sections = (document.sections ?? [])
+		.map((section, sectionIndex) => {
+			const blocks = new Map((elementBySection.get(section.sectionId)?.blocks ?? []).map((block) => [block.id, block]));
+			const layout = document.experience?.sections?.[section.sectionId]?.layout ?? "essay";
+			const modules = (section.modules ?? [])
+				.map(
+					(module) =>
+						`<article class="re-module re-${escapeAttribute(module.layout)}" id="beat-${escapeAttribute(slug(module.beatId))}"><div class="re-copy"><h3>${escapeHtml(module.headline)}</h3><div class="re-prose">${paragraphs(module.body)}</div>${module.caveat ? `<aside class="re-caveat" role="note"><strong>Caveat</strong>${escapeHtml(module.caveat)}</aside>` : ""}${citations(module.evidenceIds)}</div>${
+							module.blockIds?.length
+								? `<div class="re-visuals">${module.blockIds
+										.map((id) => blocks.get(id))
+										.filter((block): block is RichBlock => block !== undefined)
+										.map((block) => renderBlock(block, module.headline))
+										.join("")}</div>`
+								: ""
+						}</article>`,
+				)
+				.join("");
+			return `<section class="re-section re-layout-${escapeAttribute(layout)}" id="section-${escapeAttribute(slug(section.sectionId))}"><header class="re-section-head"><span class="re-section-index">${String(sectionIndex + 1).padStart(2, "0")}</span><h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.dek)}</p><strong>${escapeHtml(section.openingClaim)}</strong></header>${modules}${section.handoff ? `<p class="re-handoff"><span>Continue</span><strong>${escapeHtml(section.handoff)}</strong><i aria-hidden="true">→</i></p>` : ""}</section>`;
+		})
+		.join("");
+	const sectionList = document.sections;
+	const navLinks = sectionList
+		.map(
+			(section, index) =>
+				`<a class="re-nav-link" data-section-index="${index}" data-section-title="${escapeAttribute(section.title)}" href="#section-${escapeAttribute(slug(section.sectionId))}"><span>${String(index + 1).padStart(2, "0")}</span>${escapeHtml(section.title)}</a>`,
+		)
+		.join("");
+	const nav =
+		sectionList.length > 5
+			? `<nav class="re-nav re-nav-compact" data-nav-mode="compact" data-section-count="${sectionList.length}" aria-label="Report sections"><div class="re-nav-compact-inner"><details class="re-toc"><summary>Содержание</summary><div class="re-toc-panel">${navLinks}</div></details><div class="re-current-section" aria-live="polite"><span data-current-index>01 / ${String(sectionList.length).padStart(2, "0")}</span><strong data-current-title>${escapeHtml(sectionList[0]?.title ?? "")}</strong></div><div class="re-nav-step"><a data-nav-prev aria-label="Previous chapter" aria-disabled="true">←</a><a data-nav-next href="#section-${escapeAttribute(slug(sectionList[1]?.sectionId ?? sectionList[0]?.sectionId ?? ""))}" aria-label="Next chapter">→</a></div></div><div class="re-reading-progress" aria-hidden="true"><i></i></div></nav>`
+			: `<nav class="re-nav" data-nav-mode="tabs" data-section-count="${sectionList.length}" aria-label="Report sections"><div class="re-nav-inner">${navLinks}</div></nav>`;
+	return `<div class="re-shell" data-odyssey="1"><header class="re-hero"><div class="re-hero-inner"><p class="re-eyebrow">Evidence-led report · typed renderer</p><h1>${escapeHtml(title)}</h1><p class="re-thesis">${escapeHtml(thesis)}</p><p class="re-question"><span>Reader question</span>${escapeHtml(readerQuestion)}</p></div></header>${nav}<main>${sections}</main>${renderSources()}</div>`;
 }
 
 const css = `
@@ -227,4 +338,13 @@ const lang = /[\u0400-\u04ff]/.test(`${metaTitle}${metaThesis}`) ? "ru" : "en";
 const html = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escapeHtml(metaTitle)}</title><style>${css}</style></head><body>${body}<script>${echartsRuntime}</script><script>${client}</script></body></html>`;
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, html);
-console.log(JSON.stringify({ type: "REPORT_RENDERED", output: { artifactPath: process.env.OUTPUT_PATH ?? "artifacts/report.html", bytes: Buffer.byteLength(html), charts: chartModels.size } }));
+console.log(
+	JSON.stringify({
+		type: "REPORT_RENDERED",
+		output: {
+			artifactPath: process.env.OUTPUT_PATH ?? "artifacts/report.html",
+			bytes: Buffer.byteLength(html),
+			charts: chartModels.size,
+		},
+	}),
+);

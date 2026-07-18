@@ -45,6 +45,16 @@ Agent filenames intentionally retain their stable `report-engine-*` runtime IDs 
 
 All runtime and test entrypoints use `tsx`; no JavaScript build or `dist/` directory is generated. Validate strict contracts with `npm run typecheck`.
 
+## Code quality
+
+Biome is the single formatter, linter, and import organizer for supported source/config files. Generated e-ink artifacts and `package-lock.json` are intentionally excluded.
+
+```bash
+npm run check   # formatting + lint + import organization
+npm run lint
+npm run format
+```
+
 ## Render the example
 
 ```bash

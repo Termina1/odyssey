@@ -1,9 +1,12 @@
 import { z } from "zod";
 
-export const HttpUrl = z.string().url().refine((value) => {
-	const protocol = new URL(value).protocol;
-	return protocol === "http:" || protocol === "https:";
-}, "URL must use http or https");
+export const HttpUrl = z
+	.string()
+	.url()
+	.refine((value) => {
+		const protocol = new URL(value).protocol;
+		return protocol === "http:" || protocol === "https:";
+	}, "URL must use http or https");
 const NonEmptyText = z.string().refine((value) => value.trim().length > 0, "Must not be blank");
 
 export const SourceRecord = z.object({
@@ -54,45 +57,69 @@ export const GateFeedback = z.object({
 	preserveFindings: z.array(z.string()),
 });
 
-export const DeepResearch = z.object({
-	takeId: z.string(),
-	answer: z.string(),
-	findings: z.array(
-		z.object({
-			id: z.string(),
-			claim: NonEmptyText,
-			sourceIds: z.array(z.string()).min(1),
-			confidence: z.enum(["high", "medium", "low"]),
-			caveat: z.string().optional(),
-			tags: z.array(z.string()).default([]),
-		}),
-	),
-	sources: z.array(SourceRecord),
-	contradictions: z.array(z.string()),
-	gaps: z.array(z.string()),
-	acceptanceCriteria: z.array(
-		z.object({
-			criterion: NonEmptyText,
-			satisfied: z.boolean(),
-			evidenceIds: z.array(z.string()),
-		}),
-	),
-}).superRefine((research, context) => {
-	const sourceIds = new Set<string>();
-	for (const [index, source] of research.sources.entries()) {
-		if (sourceIds.has(source.id)) context.addIssue({ code: "custom", path: ["sources", index, "id"], message: `Duplicate source id ${source.id}` });
-		sourceIds.add(source.id);
-	}
-	const findingIds = new Set<string>();
-	for (const [index, finding] of research.findings.entries()) {
-		if (findingIds.has(finding.id)) context.addIssue({ code: "custom", path: ["findings", index, "id"], message: `Duplicate finding id ${finding.id}` });
-		findingIds.add(finding.id);
-		for (const [sourceIndex, sourceId] of finding.sourceIds.entries()) if (!sourceIds.has(sourceId)) context.addIssue({ code: "custom", path: ["findings", index, "sourceIds", sourceIndex], message: `Unknown source id ${sourceId}` });
-	}
-	for (const [criterionIndex, criterion] of research.acceptanceCriteria.entries()) {
-		for (const [evidenceIndex, evidenceId] of criterion.evidenceIds.entries()) if (!findingIds.has(evidenceId)) context.addIssue({ code: "custom", path: ["acceptanceCriteria", criterionIndex, "evidenceIds", evidenceIndex], message: `Unknown evidence id ${evidenceId}` });
-	}
-});
+export const DeepResearch = z
+	.object({
+		takeId: z.string(),
+		answer: z.string(),
+		findings: z.array(
+			z.object({
+				id: z.string(),
+				claim: NonEmptyText,
+				sourceIds: z.array(z.string()).min(1),
+				confidence: z.enum(["high", "medium", "low"]),
+				caveat: z.string().optional(),
+				tags: z.array(z.string()).default([]),
+			}),
+		),
+		sources: z.array(SourceRecord),
+		contradictions: z.array(z.string()),
+		gaps: z.array(z.string()),
+		acceptanceCriteria: z.array(
+			z.object({
+				criterion: NonEmptyText,
+				satisfied: z.boolean(),
+				evidenceIds: z.array(z.string()),
+			}),
+		),
+	})
+	.superRefine((research, context) => {
+		const sourceIds = new Set<string>();
+		for (const [index, source] of research.sources.entries()) {
+			if (sourceIds.has(source.id))
+				context.addIssue({
+					code: "custom",
+					path: ["sources", index, "id"],
+					message: `Duplicate source id ${source.id}`,
+				});
+			sourceIds.add(source.id);
+		}
+		const findingIds = new Set<string>();
+		for (const [index, finding] of research.findings.entries()) {
+			if (findingIds.has(finding.id))
+				context.addIssue({
+					code: "custom",
+					path: ["findings", index, "id"],
+					message: `Duplicate finding id ${finding.id}`,
+				});
+			findingIds.add(finding.id);
+			for (const [sourceIndex, sourceId] of finding.sourceIds.entries())
+				if (!sourceIds.has(sourceId))
+					context.addIssue({
+						code: "custom",
+						path: ["findings", index, "sourceIds", sourceIndex],
+						message: `Unknown source id ${sourceId}`,
+					});
+		}
+		for (const [criterionIndex, criterion] of research.acceptanceCriteria.entries()) {
+			for (const [evidenceIndex, evidenceId] of criterion.evidenceIds.entries())
+				if (!findingIds.has(evidenceId))
+					context.addIssue({
+						code: "custom",
+						path: ["acceptanceCriteria", criterionIndex, "evidenceIds", evidenceIndex],
+						message: `Unknown evidence id ${evidenceId}`,
+					});
+		}
+	});
 
 export const TakeManifest = z.object({
 	takeId: z.string(),
@@ -169,7 +196,11 @@ export const BeatItems = z.object({
 	count: z.number().int().nonnegative(),
 	artifactPath: z.string(),
 });
-export const BeatPacket = z.object({ beat: BeatWorkItem, evidence: z.array(EvidenceItem), sources: z.array(SourceRecord) });
+export const BeatPacket = z.object({
+	beat: BeatWorkItem,
+	evidence: z.array(EvidenceItem),
+	sources: z.array(SourceRecord),
+});
 
 export const VerifiedBeat = z.object({
 	id: z.string(),
@@ -206,8 +237,28 @@ export const PlanGateFeedback = z.object({
 	instructions: z.array(z.string()),
 });
 
-export const ChartVariant = z.enum(["line", "area", "bar", "stacked-bar", "grouped-bar", "100%-stacked-bar", "scatter", "bubble", "heatmap", "treemap", "sunburst", "sankey"]);
-export const VisualOutput = z.enum([...ChartVariant.options, "table", "metric-strip", "photo", "product-screenshot", "map"]);
+export const ChartVariant = z.enum([
+	"line",
+	"area",
+	"bar",
+	"stacked-bar",
+	"grouped-bar",
+	"100%-stacked-bar",
+	"scatter",
+	"bubble",
+	"heatmap",
+	"treemap",
+	"sunburst",
+	"sankey",
+]);
+export const VisualOutput = z.enum([
+	...ChartVariant.options,
+	"table",
+	"metric-strip",
+	"photo",
+	"product-screenshot",
+	"map",
+]);
 
 export const VisualRequest = z.object({
 	id: z.string(),
@@ -271,7 +322,9 @@ export const Dataset = z.object({
 	description: z.string(),
 	fields: z.array(DatasetField),
 	rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]))),
-	provenance: z.array(z.object({ sourceUrl: z.string(), evidenceId: z.string().optional(), extractionNote: z.string() })),
+	provenance: z.array(
+		z.object({ sourceUrl: z.string(), evidenceId: z.string().optional(), extractionNote: z.string() }),
+	),
 	limitations: z.array(z.string()),
 });
 export const ImageAsset = z.object({
@@ -301,24 +354,66 @@ export const VisualCatalog = z.object({
 	inputs: z.array(VisualInput),
 });
 
-export const BlockBase = z.object({ id: z.string(), beatId: z.string(), title: z.string(), purpose: z.string(), evidenceIds: z.array(z.string()) });
+export const BlockBase = z.object({
+	id: z.string(),
+	beatId: z.string(),
+	title: z.string(),
+	purpose: z.string(),
+	evidenceIds: z.array(z.string()),
+});
 export const RichBlock = z.discriminatedUnion("type", [
-	BlockBase.extend({ type: z.literal("chart"), datasetRequestId: z.string(), variant: ChartVariant, encoding: z.record(z.string(), z.string()), annotations: z.array(z.object({ label: z.string(), x: z.union([z.string(), z.number()]).optional(), y: z.union([z.string(), z.number()]).optional() })), interaction: z.object({ tooltip: z.boolean(), zoom: z.boolean(), legendFilter: z.boolean() }), forecast: z.object({ field: z.string() }).optional() }),
+	BlockBase.extend({
+		type: z.literal("chart"),
+		datasetRequestId: z.string(),
+		variant: ChartVariant,
+		encoding: z.record(z.string(), z.string()),
+		annotations: z.array(
+			z.object({
+				label: z.string(),
+				x: z.union([z.string(), z.number()]).optional(),
+				y: z.union([z.string(), z.number()]).optional(),
+			}),
+		),
+		interaction: z.object({ tooltip: z.boolean(), zoom: z.boolean(), legendFilter: z.boolean() }),
+		forecast: z.object({ field: z.string() }).optional(),
+	}),
 	BlockBase.extend({
 		type: z.literal("metric-strip"),
 		datasetRequestId: z.string(),
-		metrics: z.array(z.object({
-			label: z.string(),
-			valueField: z.string(),
-			where: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
-		})).min(1),
+		metrics: z
+			.array(
+				z.object({
+					label: z.string(),
+					valueField: z.string(),
+					where: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+				}),
+			)
+			.min(1),
 	}),
 	BlockBase.extend({ type: z.literal("table"), datasetRequestId: z.string(), columns: z.array(z.string()) }),
-	BlockBase.extend({ type: z.literal("comparison"), columns: z.array(z.object({ title: z.string(), body: z.string() })) }),
-	BlockBase.extend({ type: z.literal("timeline"), items: z.array(z.object({ label: z.string(), body: z.string() })).min(2) }),
-	BlockBase.extend({ type: z.literal("flow"), steps: z.array(z.object({ label: z.string(), body: z.string() })).min(2) }),
-	BlockBase.extend({ type: z.literal("matrix"), cells: z.array(z.object({ x: z.string(), y: z.string(), title: z.string(), body: z.string() })).min(4), annotations: z.array(z.string()).optional() }),
-	BlockBase.extend({ type: z.literal("callout"), tone: z.enum(["insight", "warning", "decision", "scope"]), body: z.string(), bullets: z.array(z.string()) }),
+	BlockBase.extend({
+		type: z.literal("comparison"),
+		columns: z.array(z.object({ title: z.string(), body: z.string() })),
+	}),
+	BlockBase.extend({
+		type: z.literal("timeline"),
+		items: z.array(z.object({ label: z.string(), body: z.string() })).min(2),
+	}),
+	BlockBase.extend({
+		type: z.literal("flow"),
+		steps: z.array(z.object({ label: z.string(), body: z.string() })).min(2),
+	}),
+	BlockBase.extend({
+		type: z.literal("matrix"),
+		cells: z.array(z.object({ x: z.string(), y: z.string(), title: z.string(), body: z.string() })).min(4),
+		annotations: z.array(z.string()).optional(),
+	}),
+	BlockBase.extend({
+		type: z.literal("callout"),
+		tone: z.enum(["insight", "warning", "decision", "scope"]),
+		body: z.string(),
+		bullets: z.array(z.string()),
+	}),
 	BlockBase.extend({ type: z.literal("quote"), quote: z.string(), attribution: z.string() }),
 	BlockBase.extend({ type: z.literal("image"), imageRequestId: z.string(), alt: z.string(), caption: z.string() }),
 ]);
@@ -334,7 +429,14 @@ export const SectionModule = z.object({
 	evidenceIds: z.array(z.string()),
 	caveat: z.string().optional(),
 });
-export const SectionPackage = z.object({ sectionId: z.string(), title: z.string(), dek: z.string(), openingClaim: z.string(), modules: z.array(SectionModule), handoff: z.string() });
+export const SectionPackage = z.object({
+	sectionId: z.string(),
+	title: z.string(),
+	dek: z.string(),
+	openingClaim: z.string(),
+	modules: z.array(SectionModule),
+	handoff: z.string(),
+});
 export const ChapterReworkFeedback = z.object({
 	owner: z.enum(["layout", "copy", "elements"]),
 	reason: z.string(),
@@ -352,17 +454,47 @@ export const SectionWorkItem = z.object({
 	chapterPath: z.string(),
 	reworkFeedback: ChapterReworkFeedback.optional(),
 });
-export const SectionWorkItems = z.object({ items: z.record(z.string(), SectionWorkItem), count: z.number().int().nonnegative() });
+export const SectionWorkItems = z.object({
+	items: z.record(z.string(), SectionWorkItem),
+	count: z.number().int().nonnegative(),
+});
 export const ManuscriptGateFeedback = z.object({
 	reason: z.string(),
-	chapters: z.record(z.string(), z.object({ owner: z.enum(["layout", "copy", "elements"]), instructions: z.array(z.string()) })),
+	chapters: z.record(
+		z.string(),
+		z.object({ owner: z.enum(["layout", "copy", "elements"]), instructions: z.array(z.string()) }),
+	),
 	engineIssues: z.array(z.string()).optional(),
 });
-export const ReportDocument = z.looseObject({ version: z.literal("1"), meta: z.record(z.string(), z.unknown()), plan: ReportPlan, experience: ExperiencePlan, sections: z.array(SectionPackage), elements: z.array(ElementPackage), evidence: EvidenceIndex, visualInputs: z.array(VisualInput) });
-export const DocumentManifest = z.object({ artifactPath: z.string(), sections: z.number().int().nonnegative(), blocks: z.number().int().nonnegative() });
-export const RenderManifest = z.object({ artifactPath: z.string(), bytes: z.number().int().positive(), charts: z.number().int().nonnegative() });
-export const RenderValidation = z.object({ artifactPath: z.string(), pass: z.boolean(), findings: z.number().int().nonnegative() });
-export const RenderReview = z.object({ pass: z.boolean(), findings: z.array(z.object({ severity: z.string(), message: z.string() })) });
+export const ReportDocument = z.looseObject({
+	version: z.literal("1"),
+	meta: z.record(z.string(), z.unknown()),
+	plan: ReportPlan,
+	experience: ExperiencePlan,
+	sections: z.array(SectionPackage),
+	elements: z.array(ElementPackage),
+	evidence: EvidenceIndex,
+	visualInputs: z.array(VisualInput),
+});
+export const DocumentManifest = z.object({
+	artifactPath: z.string(),
+	sections: z.number().int().nonnegative(),
+	blocks: z.number().int().nonnegative(),
+});
+export const RenderManifest = z.object({
+	artifactPath: z.string(),
+	bytes: z.number().int().positive(),
+	charts: z.number().int().nonnegative(),
+});
+export const RenderValidation = z.object({
+	artifactPath: z.string(),
+	pass: z.boolean(),
+	findings: z.number().int().nonnegative(),
+});
+export const RenderReview = z.object({
+	pass: z.boolean(),
+	findings: z.array(z.object({ severity: z.string(), message: z.string() })),
+});
 export const ScreenshotTile = z.object({
 	sectionId: z.string(),
 	viewport: z.enum(["desktop", "mobile"]),
@@ -373,8 +505,12 @@ export const ScreenshotTile = z.object({
 	path: z.string(),
 });
 export const ScreenshotManifest = z.object({ htmlPath: z.string(), tiles: z.array(ScreenshotTile).min(1) });
-export const VisualWarnings = z.looseObject({ status: z.literal("done-with-warnings"), reason: z.string(), chapters: z.record(z.string(), z.unknown()).default({}), engineIssues: z.array(z.string()).default([]) });
-
+export const VisualWarnings = z.looseObject({
+	status: z.literal("done-with-warnings"),
+	reason: z.string(),
+	chapters: z.record(z.string(), z.unknown()).default({}),
+	engineIssues: z.array(z.string()).default([]),
+});
 
 export type SourceRecord = z.infer<typeof SourceRecord>;
 export type InitialResearch = z.infer<typeof InitialResearch>;
@@ -420,4 +556,9 @@ export type RenderReview = z.infer<typeof RenderReview>;
 export type ScreenshotTile = z.infer<typeof ScreenshotTile>;
 export type ScreenshotManifest = z.infer<typeof ScreenshotManifest>;
 export type VisualWarnings = z.infer<typeof VisualWarnings>;
-export type TableValue = { series: string; value: string | number | boolean | null | number[]; missing?: boolean; forecast?: boolean };
+export type TableValue = {
+	series: string;
+	value: string | number | boolean | null | number[];
+	missing?: boolean;
+	forecast?: boolean;
+};

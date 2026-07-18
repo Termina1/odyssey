@@ -1,8 +1,10 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
 	agent,
 	artifact,
-	compound,
 	chart,
+	compound,
 	final,
 	json,
 	map,
@@ -11,16 +13,47 @@ import {
 	resume,
 	script,
 	t,
-	visit,
 	z,
 } from "@surprisal/hyperchart";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 const workflowDir = dirname(fileURLToPath(import.meta.url));
 const workflowFile = (path: string) => resolve(workflowDir, path);
 
-import { SourceRecord, InitialResearch, DeepResearchTake, DeepResearchAgenda, GateFeedback, DeepResearch, TakeManifest, EvidenceSource, EvidenceItem, EvidenceIndex, EvidenceManifest, StrategySection, NarrativeStrategy, Beat, BeatDraft, BeatWorkItem, BeatItems, VerifiedBeat, ReportPlan, PlanManifest, PlanGateFeedback, VisualRequest, ExperienceBeat, ExperienceSection, ExperiencePlan, ChapterPlan, DatasetField, Dataset, ImageAsset, VisualInput, VisualCatalog, BlockBase, RichBlock, ElementPackage, SectionModule, SectionPackage, ChapterReworkFeedback, SectionWorkItem, SectionWorkItems, ManuscriptGateFeedback, ReportDocument, DocumentManifest, RenderManifest, RenderValidation, RenderReview, ScreenshotTile, ScreenshotManifest, VisualWarnings } from "./contracts/index.js";
+import {
+	BeatDraft,
+	BeatItems,
+	type BeatWorkItem,
+	ChapterPlan,
+	DeepResearch,
+	DeepResearchAgenda,
+	type DeepResearchTake,
+	DocumentManifest,
+	ElementPackage,
+	EvidenceIndex,
+	EvidenceManifest,
+	ExperiencePlan,
+	GateFeedback,
+	InitialResearch,
+	ManuscriptGateFeedback,
+	NarrativeStrategy,
+	PlanGateFeedback,
+	PlanManifest,
+	RenderManifest,
+	RenderReview,
+	RenderValidation,
+	ReportDocument,
+	ReportPlan,
+	ScreenshotManifest,
+	SectionPackage,
+	SectionWorkItem,
+	SectionWorkItems,
+	TakeManifest,
+	VerifiedBeat,
+	VisualCatalog,
+	VisualInput,
+	type VisualRequest,
+	VisualWarnings,
+} from "./contracts/index.js";
 
 type Args = { prompt: string };
 
@@ -208,7 +241,9 @@ export default chart({
 						scout: {
 							kind: "state",
 							input: { feedback: GateFeedback.default(emptyResearchFeedback) },
-							onReenter: resume(t`Preserve accepted findings and address only this gate delta: ${json(input("feedback"))}. Write the complete revised artifact to artifacts/research/deep/${key("research.deep-research")}/research-${visitRef("research.deep-research.scout")}.json, then finish with SCOUTED and output the refreshed manifest.`),
+							onReenter: resume(
+								t`Preserve accepted findings and address only this gate delta: ${json(input("feedback"))}. Write the complete revised artifact to artifacts/research/deep/${key("research.deep-research")}/research-${visitRef("research.deep-research.scout")}.json, then finish with SCOUTED and output the refreshed manifest.`,
+							),
 							action: agent("report-engine-research-scout", {
 								task: t`Research one deep take for this request:\n\n${arg("prompt")}\n\nTake key: ${key("research.deep-research")}\nTake: ${json(item("research.deep-research"))}\nAttempt: ${visitRef("research.deep-research.scout")}\nGate feedback: ${json(input("feedback"))}\n\nWrite a complete versioned artifact to artifacts/research/deep/${key("research.deep-research")}/research-${visitRef("research.deep-research.scout")}.json. Finish with SCOUTED and output {takeId, artifactPath, sourceCount, evidenceCount}.`,
 								artifacts: {
@@ -265,7 +300,9 @@ export default chart({
 				"narrative-strategy": {
 					kind: "state",
 					input: { feedback: PlanGateFeedback.default(emptyPlanFeedback) },
-					onReenter: resume(t`Revise only the narrative strategy using this gate feedback: ${json(input("feedback"))}. Write the complete revised strategy to artifacts/plan/strategy-${visitRef("plan.narrative-strategy")}.json, then finish with STRATEGY_READY.`),
+					onReenter: resume(
+						t`Revise only the narrative strategy using this gate feedback: ${json(input("feedback"))}. Write the complete revised strategy to artifacts/plan/strategy-${visitRef("plan.narrative-strategy")}.json, then finish with STRATEGY_READY.`,
+					),
 					action: agent("report-engine-planner", {
 						task: t`Create an evidence-led narrative strategy for this report request:\n\n${arg("prompt")}\n\nGate feedback: ${json(input("feedback"))}\n\nRead the immutable evidence index. Define one supportable thesis, reader question, ordered sections, evidence allocation, exclusions, and style notes. Do not draft beats or prose. Write to artifacts/plan/strategy-${visitRef("plan.narrative-strategy")}.json, then finish with STRATEGY_READY.`,
 						reads: [artifactOf("research.assemble-evidence")],
@@ -441,7 +478,12 @@ export default chart({
 					action: agent("report-engine-layout-planner", {
 						task: t`Create the global editorial and visual experience plan for this report:\n\n${arg("prompt")}\n\nFeedback: ${json(input("feedback"))}\n\nRead the verified report plan and evidence index. Allocate prose versus visual anchors across the whole report, define chapter rhythm, visual budgets, beat presentation roles, high-level visual intent, and preferred outputs. Do not create concrete visual requests; each atomic chapter planner will do that later. Do not write prose, block payloads, HTML, CSS, JavaScript, or raw ECharts options. Write the declared versioned artifact and finish with EXPERIENCE_READY using the same plan as structured output.`,
 						reads: [artifactOf("plan.assemble-plan"), artifactOf("research.assemble-evidence")],
-						artifacts: { experience: artifact(t`artifacts/write/experience-${visitRef("write.experience-plan")}.json`, ExperiencePlan) },
+						artifacts: {
+							experience: artifact(
+								t`artifacts/write/experience-${visitRef("write.experience-plan")}.json`,
+								ExperiencePlan,
+							),
+						},
 						reply: ExperiencePlan,
 					}),
 					transitions: { EXPERIENCE_READY: "validate-experience" },
@@ -449,15 +491,26 @@ export default chart({
 				"validate-experience": {
 					kind: "state",
 					action: script("tsx", [workflowFile("scripts/validate-experience.ts")], {
-						env: { PLAN_FILE: artifactOf("plan.assemble-plan"), EVIDENCE_FILE: artifactOf("research.assemble-evidence"), EXPERIENCE_FILE: artifactOf("write.experience-plan") },
+						env: {
+							PLAN_FILE: artifactOf("plan.assemble-plan"),
+							EVIDENCE_FILE: artifactOf("research.assemble-evidence"),
+							EXPERIENCE_FILE: artifactOf("write.experience-plan"),
+						},
 						reply: PlanGateFeedback,
 					}),
-					transitions: { EXPERIENCE_VALID: "prepare-chapter-work", EXPERIENCE_INVALID: { target: "experience-plan", input: { feedback: event() } } },
+					transitions: {
+						EXPERIENCE_VALID: "prepare-chapter-work",
+						EXPERIENCE_INVALID: { target: "experience-plan", input: { feedback: event() } },
+					},
 				},
 				"prepare-chapter-work": {
 					kind: "state",
 					action: script("tsx", [workflowFile("scripts/prepare-chapter-work.ts")], {
-						env: { PLAN_FILE: artifactOf("plan.assemble-plan"), EXPERIENCE_FILE: artifactOf("write.experience-plan"), OUTPUT_PATH: "artifacts/write/chapter-work.json" },
+						env: {
+							PLAN_FILE: artifactOf("plan.assemble-plan"),
+							EXPERIENCE_FILE: artifactOf("write.experience-plan"),
+							OUTPUT_PATH: "artifacts/write/chapter-work.json",
+						},
 						artifacts: { work: artifact("artifacts/write/chapter-work.json", SectionWorkItems) },
 						reply: SectionWorkItems,
 					}),
@@ -475,11 +528,17 @@ export default chart({
 								env: { WORK_JSON: t`${json(item("write.chapter-production"))}` },
 								reply: PlanGateFeedback,
 							}),
-							transitions: { START_LAYOUT: "plan-chapter", START_ELEMENTS: "generate-elements", START_COPY: "copywrite" },
+							transitions: {
+								START_LAYOUT: "plan-chapter",
+								START_ELEMENTS: "generate-elements",
+								START_COPY: "copywrite",
+							},
 						},
 						"plan-chapter": {
 							kind: "state",
-							onReenter: resume(t`Patch the current chapter plan in place instead of replanning from scratch. Current work item and cumulative manuscript feedback: ${json(item("write.chapter-production"))}. Preserve accepted requests and constraints, modify only the requested layout/visual decisions, stay within verified beat evidence IDs and declared outputs, and finish with CHAPTER_PLANNED using the complete updated plan.`),
+							onReenter: resume(
+								t`Patch the current chapter plan in place instead of replanning from scratch. Current work item and cumulative manuscript feedback: ${json(item("write.chapter-production"))}. Preserve accepted requests and constraints, modify only the requested layout/visual decisions, stay within verified beat evidence IDs and declared outputs, and finish with CHAPTER_PLANNED using the complete updated plan.`,
+							),
 							action: agent("report-engine-chapter-planner", {
 								task: t`Plan one atomic chapter and its concrete lazy visual requests.\n\nWork item: ${json(item("write.chapter-production"))}\n\nRead the evidence index. Follow the global experience direction, but decide visual requests only for this chapter. Every request must serve one verified beat, cite existing evidence IDs, and include a fallback. Do not write prose, acquire assets, generate blocks, or affect other chapters. Write the declared chapter plan and finish with CHAPTER_PLANNED using the same plan as structured output.`,
 								reads: [artifactOf("research.assemble-evidence")],
@@ -500,17 +559,29 @@ export default chart({
 									action: agent("report-engine-visual-researcher", {
 										task: t`Acquire exactly one visual input lazily for one chapter.\n\nChapter: ${key("write.chapter-production")}\nRequest: ${json(item("write.chapter-production.visual-inputs"))}\nAttempt: ${visitRef("write.chapter-production.visual-inputs.acquire")} of 2\nFeedback: ${json(input("feedback"))}\n\nStart from evidence-linked source URLs and search beyond them only for missing input. Do not introduce unsupported claims. The output sourceIds array MUST contain source-record IDs with the s_ prefix from evidence-index.sources, never evidence/claim IDs with the e_ prefix. Evidence IDs belong only in dataset.provenance[].evidenceId. Write the declared artifact and finish with ACQUIRED; use status not-found plus fallback when acquisition fails.`,
 										reads: [artifactOf("research.assemble-evidence")],
-										artifacts: { input: artifact(t`artifacts/write/chapters/${key("write.chapter-production")}/visual-inputs/${key("write.chapter-production.visual-inputs")}-${visitRef("write.chapter-production.visual-inputs.acquire")}.json`, VisualInput) },
+										artifacts: {
+											input: artifact(
+												t`artifacts/write/chapters/${key("write.chapter-production")}/visual-inputs/${key("write.chapter-production.visual-inputs")}-${visitRef("write.chapter-production.visual-inputs.acquire")}.json`,
+												VisualInput,
+											),
+										},
 									}),
 									transitions: { ACQUIRED: "validate" },
 								},
 								validate: {
 									kind: "state",
 									action: script("tsx", [workflowFile("scripts/validate-visual-input.ts")], {
-										env: { REQUEST_JSON: t`${json(item("write.chapter-production.visual-inputs"))}`, INPUT_FILE: artifactOf("write.chapter-production.visual-inputs.acquire"), EVIDENCE_FILE: artifactOf("research.assemble-evidence") },
+										env: {
+											REQUEST_JSON: t`${json(item("write.chapter-production.visual-inputs"))}`,
+											INPUT_FILE: artifactOf("write.chapter-production.visual-inputs.acquire"),
+											EVIDENCE_FILE: artifactOf("research.assemble-evidence"),
+										},
 										reply: PlanGateFeedback,
 									}),
-									transitions: { VISUAL_INPUT_VALID: "gate", VISUAL_INPUT_INVALID: { target: "retry-budget", input: { feedback: event() } } },
+									transitions: {
+										VISUAL_INPUT_VALID: "gate",
+										VISUAL_INPUT_INVALID: { target: "retry-budget", input: { feedback: event() } },
+									},
 								},
 								gate: {
 									kind: "state",
@@ -519,7 +590,11 @@ export default chart({
 										reads: [artifactOf("write.chapter-production.visual-inputs.acquire")],
 										reply: PlanGateFeedback,
 									}),
-									transitions: { PASS: "done", FALLBACK: "done", BLOCK: { target: "retry-budget", input: { feedback: event() } } },
+									transitions: {
+										PASS: "done",
+										FALLBACK: "done",
+										BLOCK: { target: "retry-budget", input: { feedback: event() } },
+									},
 								},
 								"retry-budget": {
 									kind: "state",
@@ -542,37 +617,62 @@ export default chart({
 						"assemble-visual-inputs": {
 							kind: "state",
 							action: script("tsx", [workflowFile("scripts/assemble-chapter-visual-inputs.ts")], {
-								env: { SECTION_ID: t`${item("write.chapter-production", "sectionId")}`, VISUAL_FILES: joinArtifactOf("write.chapter-production.visual-inputs.acquire"), OUTPUT_PATH: t`${item("write.chapter-production", "visualCatalogPath")}` },
-								artifacts: { catalog: artifact(t`${item("write.chapter-production", "visualCatalogPath")}`, VisualCatalog) },
+								env: {
+									SECTION_ID: t`${item("write.chapter-production", "sectionId")}`,
+									VISUAL_FILES: joinArtifactOf("write.chapter-production.visual-inputs.acquire"),
+									OUTPUT_PATH: t`${item("write.chapter-production", "visualCatalogPath")}`,
+								},
+								artifacts: {
+									catalog: artifact(t`${item("write.chapter-production", "visualCatalogPath")}`, VisualCatalog),
+								},
 							}),
 							transitions: { VISUAL_INPUTS_READY: "generate-elements" },
 						},
 						"generate-elements": {
 							kind: "state",
 							input: { feedback: PlanGateFeedback.default(emptyPlanFeedback) },
-							onReenter: resume(t`Patch the current element package in place instead of regenerating it. Current work item and cumulative manuscript feedback: ${json(item("write.chapter-production"))}. Latest deterministic feedback: ${json(input("feedback"))}. Preserve every previously accepted correction. Change only the named blocks/fields, stay within the verified beat evidence IDs and declared block schema, and finish with ELEMENTS_READY.`),
+							onReenter: resume(
+								t`Patch the current element package in place instead of regenerating it. Current work item and cumulative manuscript feedback: ${json(item("write.chapter-production"))}. Latest deterministic feedback: ${json(input("feedback"))}. Preserve every previously accepted correction. Change only the named blocks/fields, stay within the verified beat evidence IDs and declared block schema, and finish with ELEMENTS_READY.`,
+							),
 							action: agent("report-engine-element-generator", {
 								task: t`Generate the semantic visual element package for one atomic chapter.\n\nWork item: ${json(item("write.chapter-production"))}\nFeedback: ${json(input("feedback"))}\n\nRead the current chapter plan and validated chapter-local visual catalog. Follow the visual budget and use only supplied inputs, evidence IDs, and supported block contracts. Do not write prose, HTML, CSS, JavaScript, or raw ECharts options. Write the declared artifact and finish with ELEMENTS_READY.`,
-								reads: [t`${item("write.chapter-production", "chapterPlanPath")}`, t`${item("write.chapter-production", "visualCatalogPath")}`],
-								artifacts: { elements: artifact(t`${item("write.chapter-production", "elementPath")}`, ElementPackage) },
+								reads: [
+									t`${item("write.chapter-production", "chapterPlanPath")}`,
+									t`${item("write.chapter-production", "visualCatalogPath")}`,
+								],
+								artifacts: {
+									elements: artifact(t`${item("write.chapter-production", "elementPath")}`, ElementPackage),
+								},
 							}),
 							transitions: { ELEMENTS_READY: "validate-elements" },
 						},
 						"validate-elements": {
 							kind: "state",
 							action: script("tsx", [workflowFile("scripts/validate-elements.ts")], {
-								env: { WORK_JSON: t`${json(item("write.chapter-production"))}`, ELEMENTS_FILE: t`${item("write.chapter-production", "elementPath")}`, VISUAL_CATALOG_FILE: t`${item("write.chapter-production", "visualCatalogPath")}` },
+								env: {
+									WORK_JSON: t`${json(item("write.chapter-production"))}`,
+									ELEMENTS_FILE: t`${item("write.chapter-production", "elementPath")}`,
+									VISUAL_CATALOG_FILE: t`${item("write.chapter-production", "visualCatalogPath")}`,
+								},
 								reply: PlanGateFeedback,
 							}),
-							transitions: { ELEMENTS_VALID: "copywrite", ELEMENTS_INVALID: { target: "generate-elements", input: { feedback: event() } } },
+							transitions: {
+								ELEMENTS_VALID: "copywrite",
+								ELEMENTS_INVALID: { target: "generate-elements", input: { feedback: event() } },
+							},
 						},
 						copywrite: {
 							kind: "state",
 							input: { feedback: PlanGateFeedback.default(emptyPlanFeedback) },
-							onReenter: resume(t`Patch the current chapter package in place instead of rewriting it from scratch. Current work item and cumulative manuscript feedback: ${json(item("write.chapter-production"))}. Latest deterministic feedback: ${json(input("feedback"))}. Preserve every previously accepted correction, edit only the named modules/claims, keep prose concise, and finish with CHAPTER_WRITTEN.`),
+							onReenter: resume(
+								t`Patch the current chapter package in place instead of rewriting it from scratch. Current work item and cumulative manuscript feedback: ${json(item("write.chapter-production"))}. Latest deterministic feedback: ${json(input("feedback"))}. Preserve every previously accepted correction, edit only the named modules/claims, keep prose concise, and finish with CHAPTER_WRITTEN.`,
+							),
 							action: agent("report-engine-copywriter", {
 								task: t`Turn one atomic planned chapter into polished editorial content.\n\nWork item: ${json(item("write.chapter-production"))}\nFeedback: ${json(input("feedback"))}\n\nRead the current element package. Write one module per verified beat, lead into and interpret visuals, preserve evidence IDs and caveats, and create a clean handoff. Do not change element specs or write HTML/CSS/JS. Write the declared artifact and finish with CHAPTER_WRITTEN.`,
-								reads: [t`${item("write.chapter-production", "chapterPlanPath")}`, t`${item("write.chapter-production", "elementPath")}`],
+								reads: [
+									t`${item("write.chapter-production", "chapterPlanPath")}`,
+									t`${item("write.chapter-production", "elementPath")}`,
+								],
 								artifacts: { section: artifact(t`${item("write.chapter-production", "chapterPath")}`, SectionPackage) },
 							}),
 							transitions: { CHAPTER_WRITTEN: "validate-chapter" },
@@ -580,10 +680,17 @@ export default chart({
 						"validate-chapter": {
 							kind: "state",
 							action: script("tsx", [workflowFile("scripts/validate-chapter.ts")], {
-								env: { WORK_JSON: t`${json(item("write.chapter-production"))}`, ELEMENTS_FILE: t`${item("write.chapter-production", "elementPath")}`, CHAPTER_FILE: t`${item("write.chapter-production", "chapterPath")}` },
+								env: {
+									WORK_JSON: t`${json(item("write.chapter-production"))}`,
+									ELEMENTS_FILE: t`${item("write.chapter-production", "elementPath")}`,
+									CHAPTER_FILE: t`${item("write.chapter-production", "chapterPath")}`,
+								},
 								reply: PlanGateFeedback,
 							}),
-							transitions: { CHAPTER_VALID: "done", CHAPTER_INVALID: { target: "copywrite", input: { feedback: event() } } },
+							transitions: {
+								CHAPTER_VALID: "done",
+								CHAPTER_INVALID: { target: "copywrite", input: { feedback: event() } },
+							},
 						},
 						done: final(),
 					},
@@ -592,7 +699,13 @@ export default chart({
 				"assemble-document": {
 					kind: "state",
 					action: script("tsx", [workflowFile("scripts/assemble-report-document.ts")], {
-						env: { PLAN_FILE: artifactOf("plan.assemble-plan"), EVIDENCE_FILE: artifactOf("research.assemble-evidence"), EXPERIENCE_FILE: artifactOf("write.experience-plan"), WORK_FILE: artifactOf("write.prepare-chapter-work"), OUTPUT_PATH: "artifacts/write/report-document.json" },
+						env: {
+							PLAN_FILE: artifactOf("plan.assemble-plan"),
+							EVIDENCE_FILE: artifactOf("research.assemble-evidence"),
+							EXPERIENCE_FILE: artifactOf("write.experience-plan"),
+							WORK_FILE: artifactOf("write.prepare-chapter-work"),
+							OUTPUT_PATH: "artifacts/write/report-document.json",
+						},
 						artifacts: { document: artifact("artifacts/write/report-document.json", ReportDocument) },
 						reply: DocumentManifest,
 					}),
@@ -600,7 +713,9 @@ export default chart({
 				},
 				"manuscript-gate": {
 					kind: "state",
-					onReenter: resume("Review the updated manuscript against your previous requested corrections first. Preserve closed findings and do not introduce new preference-level criteria. PASS when no material evidence, coherence, or renderability defect remains; perfection is not required. Request only changes implementable with the chapter's verified beat evidence IDs and declared block schema."),
+					onReenter: resume(
+						"Review the updated manuscript against your previous requested corrections first. Preserve closed findings and do not introduce new preference-level criteria. PASS when no material evidence, coherence, or renderability defect remains; perfection is not required. Request only changes implementable with the chapter's verified beat evidence IDs and declared block schema.",
+					),
 					action: agent("report-engine-manuscript-gate", {
 						task: "Review the complete assembled manuscript across all chapters together. PASS when progression, chapter rhythm, repetition, transitions, evidence-backed copy, and visual composition materially work as one report; perfection is not required. Respect each verified beat's evidence boundary and the declared block schema. On REWRITE return only material, implementable corrections for affected chapter ids with owner layout|copy|elements and focused instructions.",
 						reads: [artifactOf("write.assemble-document"), artifactOf("write.prepare-chapter-work")],
@@ -615,7 +730,10 @@ export default chart({
 					kind: "state",
 					input: { feedback: ManuscriptGateFeedback },
 					action: script("tsx", [workflowFile("scripts/manuscript-rewrite-budget.ts")], {
-						env: { BUDGET_VISIT: t`${visitRef("write.manuscript-rewrite-budget")}`, FEEDBACK_JSON: t`${json(input("feedback"))}` },
+						env: {
+							BUDGET_VISIT: t`${visitRef("write.manuscript-rewrite-budget")}`,
+							FEEDBACK_JSON: t`${json(input("feedback"))}`,
+						},
 						reply: ManuscriptGateFeedback,
 					}),
 					transitions: {
@@ -627,7 +745,11 @@ export default chart({
 					kind: "state",
 					input: { feedback: ManuscriptGateFeedback },
 					action: script("tsx", [workflowFile("scripts/route-chapter-rework.ts")], {
-						env: { WORK_FILE: artifactOf("write.prepare-chapter-work"), FEEDBACK_JSON: t`${json(input("feedback"))}`, OUTPUT_PATH: "artifacts/write/chapter-rework.json" },
+						env: {
+							WORK_FILE: artifactOf("write.prepare-chapter-work"),
+							FEEDBACK_JSON: t`${json(input("feedback"))}`,
+							OUTPUT_PATH: "artifacts/write/chapter-rework.json",
+						},
 						artifacts: { work: artifact("artifacts/write/chapter-rework.json", SectionWorkItems) },
 						reply: SectionWorkItems,
 					}),
@@ -645,7 +767,11 @@ export default chart({
 				"validate-render": {
 					kind: "state",
 					action: script("tsx", [workflowFile("scripts/validate-render.ts")], {
-						env: { DOCUMENT_FILE: artifactOf("write.assemble-document"), HTML_FILE: artifactOf("write.render-html"), OUTPUT_PATH: "artifacts/write/render-review.json" },
+						env: {
+							DOCUMENT_FILE: artifactOf("write.assemble-document"),
+							HTML_FILE: artifactOf("write.render-html"),
+							OUTPUT_PATH: "artifacts/write/render-review.json",
+						},
 						artifacts: { review: artifact("artifacts/write/render-review.json", RenderReview) },
 						reply: RenderValidation,
 					}),
@@ -654,7 +780,11 @@ export default chart({
 				"screenshot-report": {
 					kind: "state",
 					action: script("tsx", [workflowFile("scripts/screenshot-report.ts")], {
-						env: { HTML_FILE: artifactOf("write.render-html"), OUTPUT_DIR: "artifacts/write/screenshots", OUTPUT_PATH: "artifacts/write/screenshots.json" },
+						env: {
+							HTML_FILE: artifactOf("write.render-html"),
+							OUTPUT_DIR: "artifacts/write/screenshots",
+							OUTPUT_PATH: "artifacts/write/screenshots.json",
+						},
 						artifacts: { screenshots: artifact("artifacts/write/screenshots.json", ScreenshotManifest) },
 						reply: ScreenshotManifest,
 					}),
@@ -664,11 +794,13 @@ export default chart({
 					kind: "state",
 					action: agent("report-engine-visual-qa", {
 						task: t`Bounded visual QA pass ${visitRef("write.visual-qa")}. Read the deterministic render review and screenshot tile manifest, then open every referenced desktop/mobile tile. Verify that metric cards have real values, chart axes and labels are defined, tables/matrices are readable, no content is clipped, and mobile tiles remain legible. Treat deterministic PASS only as a technical prerequisite, not evidence of visual correctness. PASS with {reason:\"\",chapters:{},engineIssues:[]} only when presentable. Use CHAPTER_REWORK only for real chapter ids from the report plan. Never use pseudo-chapter ids such as frontmatter or sources; global navigation and renderer defects must use ENGINE_WARNING. Use ENGINE_WARNING for renderer-level issues. Never request another pass yourself. Write the declared QA artifact and finish with the matching event.`,
-						reads: [
-							artifactOf("write.validate-render"),
-							artifactOf("write.screenshot-report"),
-						],
-						artifacts: { review: artifact(t`artifacts/write/visual-qa-${visitRef("write.visual-qa")}.json`, ManuscriptGateFeedback) },
+						reads: [artifactOf("write.validate-render"), artifactOf("write.screenshot-report")],
+						artifacts: {
+							review: artifact(
+								t`artifacts/write/visual-qa-${visitRef("write.visual-qa")}.json`,
+								ManuscriptGateFeedback,
+							),
+						},
 						reply: ManuscriptGateFeedback,
 					}),
 					transitions: {
@@ -693,7 +825,10 @@ export default chart({
 					kind: "state",
 					input: { feedback: ManuscriptGateFeedback },
 					action: script("tsx", [workflowFile("scripts/finalize-visual-warnings.ts")], {
-						env: { FEEDBACK_JSON: t`${json(input("feedback"))}`, OUTPUT_PATH: "artifacts/write/visual-qa-warnings.json" },
+						env: {
+							FEEDBACK_JSON: t`${json(input("feedback"))}`,
+							OUTPUT_PATH: "artifacts/write/visual-qa-warnings.json",
+						},
 						artifacts: { warnings: artifact("artifacts/write/visual-qa-warnings.json", VisualWarnings) },
 					}),
 					transitions: { WARNINGS_SAVED: "done-with-warnings" },
