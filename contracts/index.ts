@@ -1,9 +1,15 @@
 import { z } from "zod";
 
+export const HttpUrl = z.string().url().refine((value) => {
+	const protocol = new URL(value).protocol;
+	return protocol === "http:" || protocol === "https:";
+}, "URL must use http or https");
+const NonEmptyText = z.string().refine((value) => value.trim().length > 0, "Must not be blank");
+
 export const SourceRecord = z.object({
 	id: z.string(),
 	title: z.string(),
-	url: z.string(),
+	url: HttpUrl,
 	publisher: z.string(),
 	date: z.string().optional(),
 	sourceType: z.string(),
@@ -54,8 +60,8 @@ export const DeepResearch = z.object({
 	findings: z.array(
 		z.object({
 			id: z.string(),
-			claim: z.string(),
-			sourceIds: z.array(z.string()),
+			claim: NonEmptyText,
+			sourceIds: z.array(z.string()).min(1),
 			confidence: z.enum(["high", "medium", "low"]),
 			caveat: z.string().optional(),
 			tags: z.array(z.string()).default([]),
@@ -66,11 +72,26 @@ export const DeepResearch = z.object({
 	gaps: z.array(z.string()),
 	acceptanceCriteria: z.array(
 		z.object({
-			criterion: z.string(),
+			criterion: NonEmptyText,
 			satisfied: z.boolean(),
 			evidenceIds: z.array(z.string()),
 		}),
 	),
+}).superRefine((research, context) => {
+	const sourceIds = new Set<string>();
+	for (const [index, source] of research.sources.entries()) {
+		if (sourceIds.has(source.id)) context.addIssue({ code: "custom", path: ["sources", index, "id"], message: `Duplicate source id ${source.id}` });
+		sourceIds.add(source.id);
+	}
+	const findingIds = new Set<string>();
+	for (const [index, finding] of research.findings.entries()) {
+		if (findingIds.has(finding.id)) context.addIssue({ code: "custom", path: ["findings", index, "id"], message: `Duplicate finding id ${finding.id}` });
+		findingIds.add(finding.id);
+		for (const [sourceIndex, sourceId] of finding.sourceIds.entries()) if (!sourceIds.has(sourceId)) context.addIssue({ code: "custom", path: ["findings", index, "sourceIds", sourceIndex], message: `Unknown source id ${sourceId}` });
+	}
+	for (const [criterionIndex, criterion] of research.acceptanceCriteria.entries()) {
+		for (const [evidenceIndex, evidenceId] of criterion.evidenceIds.entries()) if (!findingIds.has(evidenceId)) context.addIssue({ code: "custom", path: ["acceptanceCriteria", criterionIndex, "evidenceIds", evidenceIndex], message: `Unknown evidence id ${evidenceId}` });
+	}
 });
 
 export const TakeManifest = z.object({

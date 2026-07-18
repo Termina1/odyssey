@@ -63,10 +63,13 @@ npm test
 Or run suites individually:
 
 ```bash
+npm run test:contracts
 npm run test:renderer
 npm run test:eink
 npm run test:workflow-fixture
 ```
+
+Shared Zod contracts own structural validation and same-artifact invariants such as URL protocols, unique IDs, non-empty claims, and evidence/source referential integrity. The deep-research guard is intentionally limited to filesystem containment and manifest-to-artifact comparisons that span separate inputs.
 
 Renderer coverage includes:
 
