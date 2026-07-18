@@ -8,8 +8,9 @@ The repository contains the complete chart, agent prompts, deterministic rendere
 
 - `chart.ts` — complete `research → plan → write → done` Hyperchart.
 - `agents/` — Pi agent definitions used by the chart.
-- `engine/` — typed render model and self-contained HTML renderer.
-- `scripts/` — workflow assembly, validation, retry-budget, screenshot, and routing scripts.
+- `contracts/` — shared Zod schemas, inferred contract types, and actionable JSON parsing helpers.
+- `engine/` — strict TypeScript render model and self-contained HTML renderer.
+- `scripts/` — strict TypeScript workflow assembly, validation, retry-budget, screenshot, and routing scripts.
 - `guards/` — Hyperchart semantic guards.
 - `tests/` — renderer, responsive Playwright, and workflow fixture tests.
 - `examples/eink/report-document.json` — typed example input.
@@ -35,12 +36,14 @@ To install the chart and its agents into the current Pi user configuration:
 ```bash
 mkdir -p ~/.pi/agent/hypercharts/odyssey ~/.agents
 cp chart.ts ~/.pi/agent/hypercharts/odyssey/chart.ts
-cp -R engine guards scripts tests package.json package-lock.json ~/.pi/agent/hypercharts/odyssey/
+cp -R contracts engine guards scripts tests package.json package-lock.json tsconfig.json ~/.pi/agent/hypercharts/odyssey/
 cp agents/*.md ~/.agents/
 (cd ~/.pi/agent/hypercharts/odyssey && npm ci)
 ```
 
 Agent filenames intentionally retain their stable `report-engine-*` runtime IDs because `chart.ts` references those IDs.
+
+All runtime and test entrypoints use `tsx`; no JavaScript build or `dist/` directory is generated. Validate strict contracts with `npm run typecheck`.
 
 ## Render the example
 
@@ -79,7 +82,7 @@ Renderer coverage includes:
 ```bash
 DOCUMENT_FILE=/absolute/path/report-document.json \
 OUTPUT_PATH=/absolute/path/report.html \
-node engine/render-report.mjs
+npx tsx engine/render-report.ts
 ```
 
 Both environment variables are resolved from the current working directory when relative paths are supplied.

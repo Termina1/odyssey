@@ -2,6 +2,7 @@ import {
 	agent,
 	artifact,
 	compound,
+	chart,
 	final,
 	json,
 	map,
@@ -19,355 +20,7 @@ import { fileURLToPath } from "node:url";
 const workflowDir = dirname(fileURLToPath(import.meta.url));
 const workflowFile = (path: string) => resolve(workflowDir, path);
 
-const SourceRecord = z.object({
-	id: z.string(),
-	title: z.string(),
-	url: z.string(),
-	publisher: z.string(),
-	date: z.string().optional(),
-	sourceType: z.string(),
-});
-
-const InitialResearch = z.object({
-	angleId: z.string(),
-	angleTitle: z.string(),
-	bottomLine: z.array(z.string()),
-	findings: z.array(
-		z.object({
-			claim: z.string(),
-			sourceIds: z.array(z.string()),
-			confidence: z.enum(["high", "medium", "low"]),
-		}),
-	),
-	sources: z.array(SourceRecord),
-	contradictions: z.array(z.string()),
-	gaps: z.array(z.string()),
-	suggestedDeepQuestions: z.array(z.string()),
-});
-
-const DeepResearchTake = z.object({
-	id: z.string(),
-	title: z.string(),
-	question: z.string(),
-	rationale: z.string(),
-	priority: z.enum(["high", "medium", "low"]),
-	queries: z.array(z.string()),
-	preferredSourceTypes: z.array(z.string()),
-	acceptanceCriteria: z.array(z.string()),
-});
-
-const DeepResearchAgenda = z.object({
-	takes: z.record(z.string(), DeepResearchTake),
-});
-
-const GateFeedback = z.object({
-	reason: z.string(),
-	missingEvidence: z.array(z.string()),
-	followupQueries: z.array(z.string()),
-	preserveFindings: z.array(z.string()),
-});
-
-const DeepResearch = z.object({
-	takeId: z.string(),
-	answer: z.string(),
-	findings: z.array(
-		z.object({
-			id: z.string(),
-			claim: z.string(),
-			sourceIds: z.array(z.string()),
-			confidence: z.enum(["high", "medium", "low"]),
-			caveat: z.string().optional(),
-			tags: z.array(z.string()).default([]),
-		}),
-	),
-	sources: z.array(SourceRecord),
-	contradictions: z.array(z.string()),
-	gaps: z.array(z.string()),
-	acceptanceCriteria: z.array(
-		z.object({
-			criterion: z.string(),
-			satisfied: z.boolean(),
-			evidenceIds: z.array(z.string()),
-		}),
-	),
-});
-
-const TakeManifest = z.object({
-	takeId: z.string(),
-	artifactPath: z.string(),
-	sourceCount: z.number().int().nonnegative(),
-	evidenceCount: z.number().int().nonnegative(),
-});
-
-const EvidenceSource = SourceRecord;
-const EvidenceItem = z.object({
-	id: z.string(),
-	claim: z.string(),
-	sourceIds: z.array(z.string()),
-	confidence: z.enum(["high", "medium", "low"]),
-	caveat: z.string(),
-	tags: z.array(z.string()),
-	takeIds: z.array(z.string()),
-});
-
-const EvidenceIndex = z.object({
-	evidence: z.array(EvidenceItem),
-	sources: z.array(EvidenceSource),
-	contradictions: z.array(z.object({ description: z.string(), takeIds: z.array(z.string()) })),
-	gaps: z.array(z.object({ description: z.string(), takeIds: z.array(z.string()) })),
-	counts: z.object({
-		takes: z.number().int().nonnegative(),
-		evidence: z.number().int().nonnegative(),
-		sources: z.number().int().nonnegative(),
-	}),
-});
-
-const EvidenceManifest = z.object({
-	artifactPath: z.string(),
-	takes: z.number().int().nonnegative(),
-	evidence: z.number().int().nonnegative(),
-	sources: z.number().int().nonnegative(),
-});
-
-const StrategySection = z.object({
-	id: z.string(),
-	title: z.string(),
-	purpose: z.string(),
-	evidenceIds: z.array(z.string()),
-});
-
-const NarrativeStrategy = z.object({
-	title: z.string(),
-	objective: z.string(),
-	thesis: z.string(),
-	readerQuestion: z.string(),
-	sections: z.array(StrategySection),
-	exclusions: z.array(z.string()),
-	styleNotes: z.array(z.string()),
-});
-
-const Beat = z.object({
-	id: z.string(),
-	sectionId: z.string(),
-	narrativePurpose: z.string(),
-	takeaway: z.string(),
-	evidenceIds: z.array(z.string()),
-	caveat: z.string().optional(),
-});
-
-const BeatDraft = z.object({ beats: z.array(Beat) });
-
-const BeatWorkItem = Beat.extend({
-	index: z.number().int().nonnegative(),
-	packetPath: z.string(),
-});
-
-const BeatItems = z.object({
-	items: z.record(z.string(), BeatWorkItem),
-	count: z.number().int().nonnegative(),
-	artifactPath: z.string(),
-});
-
-const VerifiedBeat = z.object({
-	id: z.string(),
-	index: z.number().int().nonnegative(),
-	sectionId: z.string(),
-	narrativePurpose: z.string(),
-	verdict: z.enum(["supported", "weakened", "unsupported"]),
-	takeaway: z.string(),
-	evidenceIds: z.array(z.string()),
-	confidence: z.number().min(0).max(1),
-	caveat: z.string(),
-	notes: z.array(z.string()),
-});
-
-const ReportPlan = z.object({
-	title: z.string(),
-	objective: z.string(),
-	thesis: z.string(),
-	readerQuestion: z.string(),
-	sections: z.array(StrategySection.extend({ beatIds: z.array(z.string()) })),
-	beats: z.array(VerifiedBeat),
-	exclusions: z.array(z.string()),
-	styleNotes: z.array(z.string()),
-});
-
-const PlanManifest = z.object({
-	artifactPath: z.string(),
-	sectionCount: z.number().int().nonnegative(),
-	beatCount: z.number().int().nonnegative(),
-});
-
-const PlanGateFeedback = z.object({
-	reason: z.string(),
-	instructions: z.array(z.string()),
-});
-
-const VisualRequest = z.object({
-	id: z.string(),
-	sectionId: z.string(),
-	beatId: z.string(),
-	kind: z.enum(["dataset", "image", "screenshot", "map-data"]),
-	purpose: z.string(),
-	question: z.string(),
-	evidenceIds: z.array(z.string()),
-	preferredOutput: z.enum(["line", "area", "bar", "stacked-bar", "scatter", "bubble", "heatmap", "treemap", "sunburst", "sankey", "table", "metric-strip", "photo", "product-screenshot", "map"]),
-	requirements: z.array(z.string()),
-	fallback: z.enum(["table", "diagram", "callout", "prose"]),
-});
-
-const ExperienceBeat = z.object({
-	beatId: z.string(),
-	presentation: z.enum(["prose", "anchor", "supporting"]),
-	visualIntent: z.enum(["none", "data", "image", "diagram", "map"]),
-	preferredOutputs: z.array(z.enum(["line", "area", "bar", "stacked-bar", "scatter", "bubble", "heatmap", "treemap", "sunburst", "sankey", "table", "metric-strip", "photo", "product-screenshot", "map"])),
-});
-
-const ExperienceSection = z.object({
-	sectionId: z.string(),
-	layout: z.enum(["essay", "split", "visual-led", "comparison-led"]),
-	openingMode: z.enum(["claim", "question", "metric", "scene"]),
-	openingClaim: z.string(),
-	handoff: z.string(),
-	visualBudget: z.number().int().nonnegative().max(6),
-	beats: z.record(z.string(), ExperienceBeat),
-});
-
-const ExperiencePlan = z.object({
-	direction: z.string(),
-	density: z.enum(["airy", "balanced", "dense"]),
-	globalRules: z.object({
-		maxBlocksPerBeat: z.number().int().min(0).max(2),
-		maxBlocksPerSection: z.number().int().min(0).max(6),
-		avoidRepeatedTypes: z.boolean(),
-		progressiveEvidenceDisclosure: z.boolean(),
-	}),
-	sections: z.record(z.string(), ExperienceSection),
-});
-
-const ChapterPlan = z.object({
-	sectionId: z.string(),
-	layout: z.enum(["essay", "split", "visual-led", "comparison-led"]),
-	openingClaim: z.string(),
-	handoff: z.string(),
-	visualRequests: z.record(z.string(), VisualRequest),
-});
-
-const DatasetField = z.object({
-	key: z.string(),
-	label: z.string(),
-	type: z.enum(["category", "number", "date", "boolean"]),
-	unit: z.string().optional(),
-});
-const Dataset = z.object({
-	id: z.string(),
-	title: z.string(),
-	description: z.string(),
-	fields: z.array(DatasetField),
-	rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]))),
-	provenance: z.array(z.object({ sourceUrl: z.string(), evidenceId: z.string().optional(), extractionNote: z.string() })),
-	limitations: z.array(z.string()),
-});
-const ImageAsset = z.object({
-	localPath: z.string(),
-	sourceUrl: z.string(),
-	sourcePageUrl: z.string(),
-	attribution: z.string(),
-	license: z.string(),
-	mimeType: z.string(),
-	alt: z.string(),
-	caption: z.string(),
-});
-const VisualInput = z.object({
-	requestId: z.string(),
-	kind: z.enum(["dataset", "image", "screenshot", "map-data"]),
-	status: z.enum(["usable", "not-found"]),
-	sourceIds: z.array(z.string()),
-	sourceUrls: z.array(z.string()),
-	dataset: Dataset.optional(),
-	image: ImageAsset.optional(),
-	limitations: z.array(z.string()),
-	fallback: z.enum(["table", "diagram", "callout", "prose"]).optional(),
-});
-
-const VisualCatalog = z.object({
-	sectionId: z.string(),
-	inputs: z.array(VisualInput),
-});
-
-const BlockBase = z.object({ id: z.string(), beatId: z.string(), title: z.string(), purpose: z.string(), evidenceIds: z.array(z.string()) });
-const RichBlock = z.discriminatedUnion("type", [
-	BlockBase.extend({ type: z.literal("chart"), datasetRequestId: z.string(), variant: z.enum(["line", "area", "bar", "stacked-bar", "scatter", "bubble", "heatmap", "treemap", "sunburst", "sankey"]), encoding: z.record(z.string(), z.string()), annotations: z.array(z.object({ label: z.string(), x: z.union([z.string(), z.number()]).optional(), y: z.union([z.string(), z.number()]).optional() })), interaction: z.object({ tooltip: z.boolean(), zoom: z.boolean(), legendFilter: z.boolean() }) }),
-	BlockBase.extend({
-		type: z.literal("metric-strip"),
-		datasetRequestId: z.string(),
-		metrics: z.array(z.object({
-			label: z.string(),
-			valueField: z.string(),
-			where: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
-		})).min(1),
-	}),
-	BlockBase.extend({ type: z.literal("table"), datasetRequestId: z.string(), columns: z.array(z.string()) }),
-	BlockBase.extend({ type: z.literal("comparison"), columns: z.array(z.object({ title: z.string(), body: z.string() })) }),
-	BlockBase.extend({ type: z.literal("timeline"), items: z.array(z.object({ label: z.string(), body: z.string() })).min(2) }),
-	BlockBase.extend({ type: z.literal("flow"), steps: z.array(z.object({ label: z.string(), body: z.string() })).min(2) }),
-	BlockBase.extend({ type: z.literal("matrix"), cells: z.array(z.object({ x: z.string(), y: z.string(), title: z.string(), body: z.string() })).min(4), annotations: z.array(z.string()).optional() }),
-	BlockBase.extend({ type: z.literal("callout"), tone: z.enum(["insight", "warning", "decision", "scope"]), body: z.string(), bullets: z.array(z.string()) }),
-	BlockBase.extend({ type: z.literal("quote"), quote: z.string(), attribution: z.string() }),
-	BlockBase.extend({ type: z.literal("image"), imageRequestId: z.string(), alt: z.string(), caption: z.string() }),
-]);
-const ElementPackage = z.object({ sectionId: z.string(), blocks: z.array(RichBlock) });
-
-const SectionModule = z.object({
-	beatId: z.string(),
-	headline: z.string(),
-	body: z.string(),
-	presentation: z.enum(["prose", "anchor", "supporting"]),
-	layout: z.enum(["prose", "split", "visual-first", "compact"]),
-	blockIds: z.array(z.string()),
-	evidenceIds: z.array(z.string()),
-	caveat: z.string().optional(),
-});
-const SectionPackage = z.object({ sectionId: z.string(), title: z.string(), dek: z.string(), openingClaim: z.string(), modules: z.array(SectionModule), handoff: z.string() });
-const ChapterReworkFeedback = z.object({
-	owner: z.enum(["layout", "copy", "elements"]),
-	reason: z.string(),
-	instructions: z.array(z.string()),
-});
-const SectionWorkItem = z.object({
-	sectionId: z.string(),
-	index: z.number().int().nonnegative(),
-	section: StrategySection.extend({ beatIds: z.array(z.string()) }),
-	beats: z.array(VerifiedBeat),
-	experience: ExperienceSection,
-	chapterPlanPath: z.string(),
-	visualCatalogPath: z.string(),
-	elementPath: z.string(),
-	chapterPath: z.string(),
-	reworkFeedback: ChapterReworkFeedback.optional(),
-});
-const SectionWorkItems = z.object({ items: z.record(z.string(), SectionWorkItem), count: z.number().int().nonnegative() });
-const ManuscriptGateFeedback = z.object({
-	reason: z.string(),
-	chapters: z.record(z.string(), z.object({ owner: z.enum(["layout", "copy", "elements"]), instructions: z.array(z.string()) })),
-	engineIssues: z.array(z.string()).optional(),
-});
-const ReportDocument = z.looseObject({ version: z.literal("1"), meta: z.record(z.string(), z.unknown()), plan: ReportPlan, experience: ExperiencePlan, sections: z.array(SectionPackage), elements: z.array(ElementPackage), evidence: EvidenceIndex, visualInputs: z.array(VisualInput) });
-const DocumentManifest = z.object({ artifactPath: z.string(), sections: z.number().int().nonnegative(), blocks: z.number().int().nonnegative() });
-const RenderManifest = z.object({ artifactPath: z.string(), bytes: z.number().int().positive(), charts: z.number().int().nonnegative() });
-const RenderValidation = z.object({ artifactPath: z.string(), pass: z.boolean(), findings: z.number().int().nonnegative() });
-const RenderReview = z.object({ pass: z.boolean(), findings: z.array(z.object({ severity: z.string(), message: z.string() })) });
-const ScreenshotTile = z.object({
-	sectionId: z.string(),
-	viewport: z.enum(["desktop", "mobile"]),
-	index: z.number().int().nonnegative(),
-	total: z.number().int().positive(),
-	y: z.number().int().nonnegative(),
-	height: z.number().int().positive(),
-	path: z.string(),
-});
-const ScreenshotManifest = z.object({ htmlPath: z.string(), tiles: z.array(ScreenshotTile).min(1) });
-const VisualWarnings = z.looseObject({ status: z.literal("done-with-warnings"), reason: z.string(), chapters: z.record(z.string(), z.unknown()).default({}), engineIssues: z.array(z.string()).default([]) });
+import { SourceRecord, InitialResearch, DeepResearchTake, DeepResearchAgenda, GateFeedback, DeepResearch, TakeManifest, EvidenceSource, EvidenceItem, EvidenceIndex, EvidenceManifest, StrategySection, NarrativeStrategy, Beat, BeatDraft, BeatWorkItem, BeatItems, VerifiedBeat, ReportPlan, PlanManifest, PlanGateFeedback, VisualRequest, ExperienceBeat, ExperienceSection, ExperiencePlan, ChapterPlan, DatasetField, Dataset, ImageAsset, VisualInput, VisualCatalog, BlockBase, RichBlock, ElementPackage, SectionModule, SectionPackage, ChapterReworkFeedback, SectionWorkItem, SectionWorkItems, ManuscriptGateFeedback, ReportDocument, DocumentManifest, RenderManifest, RenderValidation, RenderReview, ScreenshotTile, ScreenshotManifest, VisualWarnings } from "./contracts/index.js";
 
 type Args = { prompt: string };
 
@@ -459,7 +112,6 @@ type Inputs = {
 const {
 	arg,
 	artifactOf,
-	chart,
 	event,
 	input,
 	item,
@@ -479,7 +131,7 @@ const emptyPlanFeedback = { reason: "", instructions: [] };
 
 export default chart({
 	kind: "chart",
-	id: "report-engine",
+	id: "odyssey",
 	initial: "research",
 	states: {
 		research: compound({
@@ -567,7 +219,7 @@ export default chart({
 								},
 								reply: TakeManifest,
 							}),
-							validate: script("node", [workflowFile("guards/validate-take.mjs")]),
+							validate: script("tsx", [workflowFile("guards/validate-take.ts")]),
 							onReject: "resume",
 							retries: 2,
 							transitions: { SCOUTED: "gate" },
@@ -591,7 +243,7 @@ export default chart({
 
 				"assemble-evidence": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/assemble-evidence.mjs")], {
+					action: script("tsx", [workflowFile("scripts/assemble-evidence.ts")], {
 						env: {
 							TAKE_FILES: joinArtifactOf("research.deep-research.scout"),
 							OUTPUT_PATH: "artifacts/research/evidence-index.json",
@@ -629,7 +281,7 @@ export default chart({
 
 				"validate-strategy": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/validate-strategy.mjs")], {
+					action: script("tsx", [workflowFile("scripts/validate-strategy.ts")], {
 						env: {
 							STRATEGY_FILE: artifactOf("plan.narrative-strategy"),
 							EVIDENCE_FILE: artifactOf("research.assemble-evidence"),
@@ -671,7 +323,7 @@ export default chart({
 
 				"validate-beats": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/validate-beats.mjs")], {
+					action: script("tsx", [workflowFile("scripts/validate-beats.ts")], {
 						env: {
 							DRAFT_FILE: artifactOf("plan.draft-beats"),
 							EVIDENCE_FILE: artifactOf("research.assemble-evidence"),
@@ -687,7 +339,7 @@ export default chart({
 
 				"prepare-beats": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/prepare-beats.mjs")], {
+					action: script("tsx", [workflowFile("scripts/prepare-beats.ts")], {
 						env: {
 							DRAFT_FILE: artifactOf("plan.draft-beats"),
 							EVIDENCE_FILE: artifactOf("research.assemble-evidence"),
@@ -726,7 +378,7 @@ export default chart({
 						},
 						validate: {
 							kind: "state",
-							action: script("node", [workflowFile("scripts/validate-verified-beat.mjs")], {
+							action: script("tsx", [workflowFile("scripts/validate-verified-beat.ts")], {
 								env: {
 									VERIFIED_FILE: artifactOf("plan.verify-beats.verify"),
 									PACKET_FILE: t`${item("plan.verify-beats", "packetPath")}`,
@@ -745,7 +397,7 @@ export default chart({
 
 				"assemble-plan": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/assemble-plan.mjs")], {
+					action: script("tsx", [workflowFile("scripts/assemble-plan.ts")], {
 						env: {
 							STRATEGY_FILE: artifactOf("plan.narrative-strategy"),
 							BEAT_ITEMS_FILE: artifactOf("plan.prepare-beats"),
@@ -796,7 +448,7 @@ export default chart({
 				},
 				"validate-experience": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/validate-experience.mjs")], {
+					action: script("tsx", [workflowFile("scripts/validate-experience.ts")], {
 						env: { PLAN_FILE: artifactOf("plan.assemble-plan"), EVIDENCE_FILE: artifactOf("research.assemble-evidence"), EXPERIENCE_FILE: artifactOf("write.experience-plan") },
 						reply: PlanGateFeedback,
 					}),
@@ -804,7 +456,7 @@ export default chart({
 				},
 				"prepare-chapter-work": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/prepare-chapter-work.mjs")], {
+					action: script("tsx", [workflowFile("scripts/prepare-chapter-work.ts")], {
 						env: { PLAN_FILE: artifactOf("plan.assemble-plan"), EXPERIENCE_FILE: artifactOf("write.experience-plan"), OUTPUT_PATH: "artifacts/write/chapter-work.json" },
 						artifacts: { work: artifact("artifacts/write/chapter-work.json", SectionWorkItems) },
 						reply: SectionWorkItems,
@@ -819,7 +471,7 @@ export default chart({
 					states: {
 						route: {
 							kind: "state",
-							action: script("node", [workflowFile("scripts/route-chapter-start.mjs")], {
+							action: script("tsx", [workflowFile("scripts/route-chapter-start.ts")], {
 								env: { WORK_JSON: t`${json(item("write.chapter-production"))}` },
 								reply: PlanGateFeedback,
 							}),
@@ -854,7 +506,7 @@ export default chart({
 								},
 								validate: {
 									kind: "state",
-									action: script("node", [workflowFile("scripts/validate-visual-input.mjs")], {
+									action: script("tsx", [workflowFile("scripts/validate-visual-input.ts")], {
 										env: { REQUEST_JSON: t`${json(item("write.chapter-production.visual-inputs"))}`, INPUT_FILE: artifactOf("write.chapter-production.visual-inputs.acquire"), EVIDENCE_FILE: artifactOf("research.assemble-evidence") },
 										reply: PlanGateFeedback,
 									}),
@@ -872,7 +524,7 @@ export default chart({
 								"retry-budget": {
 									kind: "state",
 									input: { feedback: PlanGateFeedback },
-									action: script("node", [workflowFile("scripts/visual-input-retry-budget.mjs")], {
+									action: script("tsx", [workflowFile("scripts/visual-input-retry-budget.ts")], {
 										env: {
 											ATTEMPT: t`${visitRef("write.chapter-production.visual-inputs.acquire")}`,
 											REQUEST_JSON: t`${json(item("write.chapter-production.visual-inputs"))}`,
@@ -889,7 +541,7 @@ export default chart({
 						}),
 						"assemble-visual-inputs": {
 							kind: "state",
-							action: script("node", [workflowFile("scripts/assemble-chapter-visual-inputs.mjs")], {
+							action: script("tsx", [workflowFile("scripts/assemble-chapter-visual-inputs.ts")], {
 								env: { SECTION_ID: t`${item("write.chapter-production", "sectionId")}`, VISUAL_FILES: joinArtifactOf("write.chapter-production.visual-inputs.acquire"), OUTPUT_PATH: t`${item("write.chapter-production", "visualCatalogPath")}` },
 								artifacts: { catalog: artifact(t`${item("write.chapter-production", "visualCatalogPath")}`, VisualCatalog) },
 							}),
@@ -908,7 +560,7 @@ export default chart({
 						},
 						"validate-elements": {
 							kind: "state",
-							action: script("node", [workflowFile("scripts/validate-elements.mjs")], {
+							action: script("tsx", [workflowFile("scripts/validate-elements.ts")], {
 								env: { WORK_JSON: t`${json(item("write.chapter-production"))}`, ELEMENTS_FILE: t`${item("write.chapter-production", "elementPath")}`, VISUAL_CATALOG_FILE: t`${item("write.chapter-production", "visualCatalogPath")}` },
 								reply: PlanGateFeedback,
 							}),
@@ -927,7 +579,7 @@ export default chart({
 						},
 						"validate-chapter": {
 							kind: "state",
-							action: script("node", [workflowFile("scripts/validate-chapter.mjs")], {
+							action: script("tsx", [workflowFile("scripts/validate-chapter.ts")], {
 								env: { WORK_JSON: t`${json(item("write.chapter-production"))}`, ELEMENTS_FILE: t`${item("write.chapter-production", "elementPath")}`, CHAPTER_FILE: t`${item("write.chapter-production", "chapterPath")}` },
 								reply: PlanGateFeedback,
 							}),
@@ -939,7 +591,7 @@ export default chart({
 				}),
 				"assemble-document": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/assemble-report-document.mjs")], {
+					action: script("tsx", [workflowFile("scripts/assemble-report-document.ts")], {
 						env: { PLAN_FILE: artifactOf("plan.assemble-plan"), EVIDENCE_FILE: artifactOf("research.assemble-evidence"), EXPERIENCE_FILE: artifactOf("write.experience-plan"), WORK_FILE: artifactOf("write.prepare-chapter-work"), OUTPUT_PATH: "artifacts/write/report-document.json" },
 						artifacts: { document: artifact("artifacts/write/report-document.json", ReportDocument) },
 						reply: DocumentManifest,
@@ -962,7 +614,7 @@ export default chart({
 				"manuscript-rewrite-budget": {
 					kind: "state",
 					input: { feedback: ManuscriptGateFeedback },
-					action: script("node", [workflowFile("scripts/manuscript-rewrite-budget.mjs")], {
+					action: script("tsx", [workflowFile("scripts/manuscript-rewrite-budget.ts")], {
 						env: { BUDGET_VISIT: t`${visitRef("write.manuscript-rewrite-budget")}`, FEEDBACK_JSON: t`${json(input("feedback"))}` },
 						reply: ManuscriptGateFeedback,
 					}),
@@ -974,7 +626,7 @@ export default chart({
 				"route-chapter-rework": {
 					kind: "state",
 					input: { feedback: ManuscriptGateFeedback },
-					action: script("node", [workflowFile("scripts/route-chapter-rework.mjs")], {
+					action: script("tsx", [workflowFile("scripts/route-chapter-rework.ts")], {
 						env: { WORK_FILE: artifactOf("write.prepare-chapter-work"), FEEDBACK_JSON: t`${json(input("feedback"))}`, OUTPUT_PATH: "artifacts/write/chapter-rework.json" },
 						artifacts: { work: artifact("artifacts/write/chapter-rework.json", SectionWorkItems) },
 						reply: SectionWorkItems,
@@ -983,7 +635,7 @@ export default chart({
 				},
 				"render-html": {
 					kind: "state",
-					action: script("node", [workflowFile("engine/render-report.mjs")], {
+					action: script("tsx", [workflowFile("engine/render-report.ts")], {
 						env: { DOCUMENT_FILE: artifactOf("write.assemble-document"), OUTPUT_PATH: "artifacts/report.html" },
 						artifacts: { report: artifact("artifacts/report.html") },
 						reply: RenderManifest,
@@ -992,7 +644,7 @@ export default chart({
 				},
 				"validate-render": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/validate-render.mjs")], {
+					action: script("tsx", [workflowFile("scripts/validate-render.ts")], {
 						env: { DOCUMENT_FILE: artifactOf("write.assemble-document"), HTML_FILE: artifactOf("write.render-html"), OUTPUT_PATH: "artifacts/write/render-review.json" },
 						artifacts: { review: artifact("artifacts/write/render-review.json", RenderReview) },
 						reply: RenderValidation,
@@ -1001,7 +653,7 @@ export default chart({
 				},
 				"screenshot-report": {
 					kind: "state",
-					action: script("node", [workflowFile("scripts/screenshot-report.mjs")], {
+					action: script("tsx", [workflowFile("scripts/screenshot-report.ts")], {
 						env: { HTML_FILE: artifactOf("write.render-html"), OUTPUT_DIR: "artifacts/write/screenshots", OUTPUT_PATH: "artifacts/write/screenshots.json" },
 						artifacts: { screenshots: artifact("artifacts/write/screenshots.json", ScreenshotManifest) },
 						reply: ScreenshotManifest,
@@ -1028,7 +680,7 @@ export default chart({
 				"visual-rewrite-budget": {
 					kind: "state",
 					input: { feedback: ManuscriptGateFeedback },
-					action: script("node", [workflowFile("scripts/visual-rewrite-budget.mjs")], {
+					action: script("tsx", [workflowFile("scripts/visual-rewrite-budget.ts")], {
 						env: { QA_VISIT: t`${visitRef("write.visual-qa")}`, FEEDBACK_JSON: t`${json(input("feedback"))}` },
 						reply: ManuscriptGateFeedback,
 					}),
@@ -1040,7 +692,7 @@ export default chart({
 				"finalize-visual-warnings": {
 					kind: "state",
 					input: { feedback: ManuscriptGateFeedback },
-					action: script("node", [workflowFile("scripts/finalize-visual-warnings.mjs")], {
+					action: script("tsx", [workflowFile("scripts/finalize-visual-warnings.ts")], {
 						env: { FEEDBACK_JSON: t`${json(input("feedback"))}`, OUTPUT_PATH: "artifacts/write/visual-qa-warnings.json" },
 						artifacts: { warnings: artifact("artifacts/write/visual-qa-warnings.json", VisualWarnings) },
 					}),

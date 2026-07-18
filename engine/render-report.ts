@@ -12,28 +12,32 @@ import {
   sameLabel,
   slug,
   sourceUrl,
-} from "./render-model.mjs";
+  type ChartBlock,
+  type ChartModel,
+} from "./render-model.js";
+import { ReportDocument, type Dataset, type RichBlock } from "../contracts/index.js";
+import { parseJsonFile, requiredEnv } from "../contracts/runtime.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cwd = process.cwd();
-const documentPath = resolve(cwd, process.env.DOCUMENT_FILE);
+const documentPath = resolve(cwd, requiredEnv("DOCUMENT_FILE"));
 const outputPath = resolve(cwd, process.env.OUTPUT_PATH ?? "artifacts/report.html");
-const document = JSON.parse(await readFile(documentPath, "utf8"));
-const visualById = new Map((document.visualInputs ?? []).map((entry) => [entry.requestId, entry]));
-const evidenceById = new Map((document.evidence?.evidence ?? []).map((entry) => [entry.id, entry]));
-const sourceById = new Map((document.evidence?.sources ?? []).map((entry) => [entry.id, entry]));
-const evidenceNumber = new Map((document.evidence?.evidence ?? []).map((entry, index) => [entry.id, index + 1]));
-const elementBySection = new Map((document.elements ?? []).map((entry) => [entry.sectionId, entry]));
-const chartModels = new Map();
-const chartOptions = {};
-const imageUris = new Map();
+const document = await parseJsonFile(documentPath, ReportDocument);
+const visualById = new Map(document.visualInputs.map((entry) => [entry.requestId, entry]));
+const evidenceById = new Map(document.evidence.evidence.map((entry) => [entry.id, entry]));
+const sourceById = new Map(document.evidence.sources.map((entry) => [entry.id, entry]));
+const evidenceNumber = new Map(document.evidence.evidence.map((entry, index) => [entry.id, index + 1]));
+const elementBySection = new Map(document.elements.map((entry) => [entry.sectionId, entry]));
+const chartModels = new Map<string, ChartModel>();
+const chartOptions: Record<string, ChartModel["options"]> = {};
+const imageUris = new Map<string, string>();
 
-function readRelative(path) {
+function readRelative(path: string): string {
   return resolve(cwd, path);
 }
 
-async function loadImageUris() {
-  for (const visual of document.visualInputs ?? []) {
+async function loadImageUris(): Promise<void> {
+  for (const visual of document.visualInputs) {
     if (visual.status !== "usable" || !visual.image?.localPath) continue;
     const path = readRelative(visual.image.localPath);
     const bytes = await readFile(path);
@@ -41,11 +45,11 @@ async function loadImageUris() {
   }
 }
 
-function paragraphs(body) {
+function paragraphs(body: string): string {
   return String(body ?? "").split(/\n\s*\n/).filter((text) => text.trim()).map((text) => `<p>${escapeHtml(text.trim())}</p>`).join("");
 }
 
-function citations(ids = []) {
+function citations(ids: string[] = []): string {
   const links = ids.map((id) => {
     const number = evidenceNumber.get(id);
     const evidence = evidenceById.get(id);
@@ -55,7 +59,7 @@ function citations(ids = []) {
   return links ? `<div class="re-citations" aria-label="Evidence citations">${links}</div>` : "";
 }
 
-function sourceLinks(sourceIds = []) {
+function sourceLinks(sourceIds: string[] = []): string {
   return sourceIds.map((sourceId) => {
     const source = sourceById.get(sourceId);
     if (!source) return `<span class="re-source-missing">${escapeHtml(sourceId)}</span>`;
@@ -64,11 +68,11 @@ function sourceLinks(sourceIds = []) {
   }).join("");
 }
 
-function fieldLabel(dataset, key) {
+function fieldLabel(dataset: Dataset | null, key: string): string {
   return fieldMap(dataset).get(key)?.label ?? key;
 }
 
-function makeChartModel(block) {
+function makeChartModel(block: ChartBlock): ChartModel {
   const visual = visualById.get(block.datasetRequestId);
   if (!visual || visual.status !== "usable" || !visual.dataset) throw new Error(`Chart ${block.id} has no usable dataset ${block.datasetRequestId}`);
   const model = buildChartModel(block, visual.dataset);
@@ -79,11 +83,11 @@ function makeChartModel(block) {
   return model;
 }
 
-function renderChartDataTable(model) {
+function renderChartDataTable(model: ChartModel): string {
   const block = model.block;
   if (!model.tableRows?.length) return "";
   const series = model.seriesValues ?? [];
-  const firstHeader = model.kind === "sankey" ? "Flow" : model.kind === "heatmap" ? fieldLabel(model.valueField ? { fields: [model.valueField] } : null, model.valueField?.key ?? "Value") : (model.xField?.label ?? "Category");
+  const firstHeader = model.kind === "sankey" ? "Flow" : model.kind === "heatmap" ? (model.valueField?.label ?? "Value") : (model.xField?.label ?? "Category");
   const head = `<tr><th scope="col">${escapeHtml(firstHeader)}</th>${series.map((name) => `<th scope="col">${escapeHtml(name)}</th>`).join("")}</tr>`;
   const rows = model.tableRows.map((row) => `<tr><th scope="row">${escapeHtml(row.category)}</th>${(row.values ?? []).map((value) => {
     const raw = Array.isArray(value.value) ? value.value.join(", ") : value.value;
@@ -94,7 +98,7 @@ function renderChartDataTable(model) {
   return `<details class="re-chart-data"><summary>Data table</summary><div class="re-table-wrap"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div></details>`;
 }
 
-function chartSummary(model) {
+function chartSummary(model: ChartModel): string {
   const block = model.block;
   const rows = (model.tableRows ?? []).slice(0, 12).map((row) => {
     const values = (row.values ?? []).filter((value) => !value.missing).map((value) => {
@@ -107,11 +111,11 @@ function chartSummary(model) {
   return `${escapeHtml(block.title ?? "Chart")} — ${escapeHtml(rows.join(". "))}`;
 }
 
-function renderChart(block) {
+function renderChart(block: ChartBlock): string {
   const model = makeChartModel(block);
-  const chartId = model.chartId;
+  const chartId = model.chartId ?? `chart-${slug(block.id)}`;
   const svgChart = echarts.init(null, null, { renderer: "svg", ssr: true, width: 960, height: 430 });
-  svgChart.setOption(model.options);
+  svgChart.setOption(model.options as Parameters<typeof svgChart.setOption>[0]);
   const svg = svgChart.renderToSVGString();
   svgChart.dispose();
   const controls = [];
@@ -134,12 +138,13 @@ function renderChart(block) {
   </div>`;
 }
 
-function renderMetricStrip(block) {
+function renderMetricStrip(block: Extract<RichBlock, { type: "metric-strip" }>): string {
   const visual = visualById.get(block.datasetRequestId);
   if (!visual?.dataset) throw new Error(`Metric block ${block.id} has no usable dataset`);
-  const fields = fieldMap(visual.dataset);
-  const metrics = (block.metrics ?? []).map((metric) => {
-    const matches = (visual.dataset.rows ?? []).filter((row) => Object.entries(metric.where ?? {}).every(([key, value]) => row[key] === value));
+  const dataset = visual.dataset;
+  const fields = fieldMap(dataset);
+  const metrics = block.metrics.map((metric) => {
+    const matches = dataset.rows.filter((row) => Object.entries(metric.where).every(([key, value]) => row[key] === value));
     if (matches.length !== 1) throw new Error(`Metric ${block.id}/${metric.label} resolved ${matches.length} rows`);
     const value = matches[0][metric.valueField];
     if (value === undefined || value === null || value === "") throw new Error(`Metric ${block.id}/${metric.label} has no value`);
@@ -149,23 +154,24 @@ function renderMetricStrip(block) {
   return `<div class="re-metrics">${metrics}</div>`;
 }
 
-function renderTable(block) {
+function renderTable(block: Extract<RichBlock, { type: "table" }>): string {
   const visual = visualById.get(block.datasetRequestId);
   if (!visual?.dataset) throw new Error(`Table block ${block.id} has no usable dataset`);
   const dataset = visual.dataset; const fields = fieldMap(dataset); const columns = block.columns ?? dataset.fields.map((field) => field.key);
-  const head = columns.map((key) => `<th scope="col">${escapeHtml(fields.get(key)?.label ?? key)}${fields.get(key)?.unit ? ` <span class="re-unit">(${escapeHtml(fields.get(key).unit)})</span>` : ""}</th>`).join("");
+  const head = columns.map((key) => { const field = fields.get(key); return `<th scope="col">${escapeHtml(field?.label ?? key)}${field?.unit ? ` <span class="re-unit">(${escapeHtml(field.unit)})</span>` : ""}</th>`; }).join("");
   const body = dataset.rows.map((row) => `<tr>${columns.map((key) => `<td>${escapeHtml(row[key] === undefined || row[key] === null ? "" : row[key])}</td>`).join("")}</tr>`).join("");
   return `<div class="re-table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
-function renderBlock(block, moduleHeadline) {
+function renderBlock(block: RichBlock, moduleHeadline: string): string {
   const duplicateTitle = sameLabel(block.title, moduleHeadline);
   let body = "";
   if (block.type === "chart") body = renderChart(block);
   else if (block.type === "metric-strip") body = renderMetricStrip(block);
   else if (block.type === "table") body = renderTable(block);
   else if (block.type === "comparison") body = `<div class="re-comparison">${(block.columns ?? []).map((column) => `<article><h5>${escapeHtml(column.title)}</h5>${paragraphs(column.body)}</article>`).join("")}</div>`;
-  else if (block.type === "timeline" || block.type === "flow") body = `<ol class="re-${block.type}-items">${(block.items ?? block.steps ?? []).map((entry) => `<li><b>${escapeHtml(entry.label ?? entry.title)}</b><span>${escapeHtml(entry.body)}</span></li>`).join("")}</ol>`;
+  else if (block.type === "timeline") body = `<ol class="re-timeline-items">${block.items.map((entry) => `<li><b>${escapeHtml(entry.label)}</b><span>${escapeHtml(entry.body)}</span></li>`).join("")}</ol>`;
+  else if (block.type === "flow") body = `<ol class="re-flow-items">${block.steps.map((entry) => `<li><b>${escapeHtml(entry.label)}</b><span>${escapeHtml(entry.body)}</span></li>`).join("")}</ol>`;
   else if (block.type === "matrix") body = `<div class="re-matrix">${(block.cells ?? []).map((cell) => `<article><small>${escapeHtml(cell.x)} × ${escapeHtml(cell.y)}</small><h5>${escapeHtml(cell.title)}</h5><p>${escapeHtml(cell.body)}</p></article>`).join("")}</div>${block.annotations?.length ? `<ul class="re-matrix-notes">${block.annotations.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>` : ""}`;
   else if (block.type === "callout") body = `<div class="re-callout re-callout-${escapeAttribute(block.tone ?? "insight")}" role="note">${paragraphs(block.body)}${block.bullets?.length ? `<ul>${block.bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}</div>`;
   else if (block.type === "quote") body = `<blockquote><p>${escapeHtml(block.quote)}</p><cite>${escapeHtml(block.attribution)}</cite></blockquote>`;
@@ -173,32 +179,36 @@ function renderBlock(block, moduleHeadline) {
     const visual = visualById.get(block.imageRequestId);
     if (!visual?.image || !imageUris.has(block.imageRequestId)) throw new Error(`Image block ${block.id} has no usable local image`);
     body = `<figure><img src="${imageUris.get(block.imageRequestId)}" alt="${escapeAttribute(block.alt || visual.image.alt || "")}" loading="lazy"><figcaption>${escapeHtml(block.caption || visual.image.caption || "")}</figcaption></figure>`;
-  } else throw new Error(`Unsupported block type ${block.type}`);
+  } else { const unsupported: never = block; throw new Error(`Unsupported block type ${String(unsupported)}`); }
   return `<aside class="re-block re-block-${escapeAttribute(block.type)}" id="block-${escapeAttribute(slug(block.id))}"><header><span class="re-block-kind">${escapeHtml(block.type)}</span><h4${duplicateTitle ? " class=\"re-sr-only\"" : ""}>${escapeHtml(block.title)}</h4><p>${escapeHtml(block.purpose)}</p></header>${body}${citations(block.evidenceIds)}</aside>`;
 }
 
-function renderSources() {
+function renderSources(): string {
   const evidenceEntries = (document.evidence?.evidence ?? []).map((entry) => `<article id="evidence-${escapeAttribute(slug(entry.id))}"><h3><span class="re-evidence-number">[${evidenceNumber.get(entry.id)}]</span> ${escapeHtml(entry.claim)}</h3>${entry.caveat ? `<p>${escapeHtml(entry.caveat)}</p>` : ""}<div class="re-source-links">${sourceLinks(entry.sourceIds)}</div></article>`).join("");
   const sourceEntries = (document.evidence?.sources ?? []).map((source) => `<article id="source-${escapeAttribute(slug(source.id))}"><h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.publisher)}${source.date ? ` · ${escapeHtml(source.date)}` : ""}</p><a href="${escapeAttribute(sourceUrl(source.url))}" target="_blank" rel="noreferrer">${escapeHtml(source.url)}</a></article>`).join("");
   return `<section class="re-sources" id="sources"><div class="re-source-intro"><span class="re-kicker">Traceability</span><h2>Evidence and sources</h2><p>Every claim and visual is linked to its evidence record. Forecasts, proxies, and measurement limits remain visible rather than being smoothed into a single market number.</p></div><div class="re-evidence-list">${evidenceEntries}</div><h2 class="re-source-index-title">Source index</h2><div class="re-source-list">${sourceEntries}</div></section>`;
 }
 
-function renderDocument() {
-  const title = document.meta?.title ?? document.plan?.title ?? "Report";
-  const thesis = document.meta?.thesis ?? document.plan?.thesis ?? "";
-  const readerQuestion = document.meta?.readerQuestion ?? document.plan?.readerQuestion ?? "";
+function renderDocument(): string {
+  const metaText = (key: string): string | undefined => {
+    const value = document.meta[key];
+    return typeof value === "string" ? value : undefined;
+  };
+  const title = metaText("title") ?? document.plan.title ?? "Report";
+  const thesis = metaText("thesis") ?? document.plan.thesis ?? "";
+  const readerQuestion = metaText("readerQuestion") ?? document.plan.readerQuestion ?? "";
   const sections = (document.sections ?? []).map((section, sectionIndex) => {
     const blocks = new Map((elementBySection.get(section.sectionId)?.blocks ?? []).map((block) => [block.id, block]));
     const layout = document.experience?.sections?.[section.sectionId]?.layout ?? "essay";
-    const modules = (section.modules ?? []).map((module) => `<article class="re-module re-${escapeAttribute(module.layout)}" id="beat-${escapeAttribute(slug(module.beatId))}"><div class="re-copy"><h3>${escapeHtml(module.headline)}</h3><div class="re-prose">${paragraphs(module.body)}</div>${module.caveat ? `<aside class="re-caveat" role="note"><strong>Caveat</strong>${escapeHtml(module.caveat)}</aside>` : ""}${citations(module.evidenceIds)}</div>${module.blockIds?.length ? `<div class="re-visuals">${module.blockIds.map((id) => blocks.get(id)).filter(Boolean).map((block) => renderBlock(block, module.headline)).join("")}</div>` : ""}</article>`).join("");
+    const modules = (section.modules ?? []).map((module) => `<article class="re-module re-${escapeAttribute(module.layout)}" id="beat-${escapeAttribute(slug(module.beatId))}"><div class="re-copy"><h3>${escapeHtml(module.headline)}</h3><div class="re-prose">${paragraphs(module.body)}</div>${module.caveat ? `<aside class="re-caveat" role="note"><strong>Caveat</strong>${escapeHtml(module.caveat)}</aside>` : ""}${citations(module.evidenceIds)}</div>${module.blockIds?.length ? `<div class="re-visuals">${module.blockIds.map((id) => blocks.get(id)).filter((block): block is RichBlock => block !== undefined).map((block) => renderBlock(block, module.headline)).join("")}</div>` : ""}</article>`).join("");
     return `<section class="re-section re-layout-${escapeAttribute(layout)}" id="section-${escapeAttribute(slug(section.sectionId))}"><header class="re-section-head"><span class="re-section-index">${String(sectionIndex + 1).padStart(2, "0")}</span><h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.dek)}</p><strong>${escapeHtml(section.openingClaim)}</strong></header>${modules}${section.handoff ? `<p class="re-handoff"><span>Continue</span><strong>${escapeHtml(section.handoff)}</strong><i aria-hidden="true">→</i></p>` : ""}</section>`;
   }).join("");
-  const sectionList = document.sections ?? [];
+  const sectionList = document.sections;
   const navLinks = sectionList.map((section, index) => `<a class="re-nav-link" data-section-index="${index}" data-section-title="${escapeAttribute(section.title)}" href="#section-${escapeAttribute(slug(section.sectionId))}"><span>${String(index + 1).padStart(2, "0")}</span>${escapeHtml(section.title)}</a>`).join("");
   const nav = sectionList.length > 5
     ? `<nav class="re-nav re-nav-compact" data-nav-mode="compact" data-section-count="${sectionList.length}" aria-label="Report sections"><div class="re-nav-compact-inner"><details class="re-toc"><summary>Содержание</summary><div class="re-toc-panel">${navLinks}</div></details><div class="re-current-section" aria-live="polite"><span data-current-index>01 / ${String(sectionList.length).padStart(2, "0")}</span><strong data-current-title>${escapeHtml(sectionList[0]?.title ?? "")}</strong></div><div class="re-nav-step"><a data-nav-prev aria-label="Previous chapter" aria-disabled="true">←</a><a data-nav-next href="#section-${escapeAttribute(slug(sectionList[1]?.sectionId ?? sectionList[0]?.sectionId ?? ""))}" aria-label="Next chapter">→</a></div></div><div class="re-reading-progress" aria-hidden="true"><i></i></div></nav>`
     : `<nav class="re-nav" data-nav-mode="tabs" data-section-count="${sectionList.length}" aria-label="Report sections"><div class="re-nav-inner">${navLinks}</div></nav>`;
-  return `<div class="re-shell" data-report-engine="1"><header class="re-hero"><div class="re-hero-inner"><p class="re-eyebrow">Evidence-led report · typed renderer</p><h1>${escapeHtml(title)}</h1><p class="re-thesis">${escapeHtml(thesis)}</p><p class="re-question"><span>Reader question</span>${escapeHtml(readerQuestion)}</p></div></header>${nav}<main>${sections}</main>${renderSources()}</div>`;
+  return `<div class="re-shell" data-odyssey="1"><header class="re-hero"><div class="re-hero-inner"><p class="re-eyebrow">Evidence-led report · typed renderer</p><h1>${escapeHtml(title)}</h1><p class="re-thesis">${escapeHtml(thesis)}</p><p class="re-question"><span>Reader question</span>${escapeHtml(readerQuestion)}</p></div></header>${nav}<main>${sections}</main>${renderSources()}</div>`;
 }
 
 const css = `
@@ -211,8 +221,10 @@ const body = renderDocument();
 const echartsRuntime = await readFile(resolve(here, "../node_modules/echarts/dist/echarts.min.js"), "utf8");
 const safeOptions = JSON.stringify(chartOptions).replace(/</g, "\\u003c");
 const client = `(()=>{const options=${safeOptions};const charts=new Map();const hydrate=()=>{for(const [id,option] of Object.entries(options)){const node=document.getElementById(id);if(!node||!window.echarts||charts.has(id))continue;try{node.innerHTML='';const chart=window.echarts.init(node,null,{renderer:'svg'});chart.setOption(option);charts.set(id,chart);const ro=window.ResizeObserver?new ResizeObserver(()=>chart.resize()):null;if(ro)ro.observe(node);const shell=node.closest('[data-chart]');if(!shell)continue;shell.querySelectorAll('[data-series]').forEach(button=>button.addEventListener('click',()=>{const name=button.getAttribute('data-series');const pressed=button.getAttribute('aria-pressed')==='true';button.setAttribute('aria-pressed',String(!pressed));chart.dispatchAction({type:pressed?'legendUnSelect':'legendSelect',name});}));shell.querySelectorAll('[data-zoom]').forEach(button=>button.addEventListener('click',()=>{const action=button.getAttribute('data-zoom');const current=chart.getOption().dataZoom?.[0]||{start:0,end:100};if(action==='reset')chart.dispatchAction({type:'dataZoom',start:0,end:100});else{const span=Math.max(10,Number(current.end)-Number(current.start));const delta=span*.2;const start=action==='in'?Math.min(90,Number(current.start)+delta/2):Math.max(0,Number(current.start)-delta/2);const end=action==='in'?Math.max(start+10,Number(current.end)-delta/2):Math.min(100,Number(current.end)+delta/2);chart.dispatchAction({type:'dataZoom',start,end});}}));}catch(error){node.setAttribute('data-render-error',String(error));}}};const initNav=()=>{const nav=document.querySelector('.re-nav');if(!nav)return;const links=[...nav.querySelectorAll('.re-nav-link')];const sections=links.map(link=>document.querySelector(link.getAttribute('href')));const currentIndex=nav.querySelector('[data-current-index]');const currentTitle=nav.querySelector('[data-current-title]');const previous=nav.querySelector('[data-nav-prev]');const next=nav.querySelector('[data-nav-next]');const progress=nav.querySelector('.re-reading-progress i');let active=-1;const setActive=index=>{if(index===active||index<0)return;active=index;links.forEach((link,i)=>i===index?link.setAttribute('aria-current','true'):link.removeAttribute('aria-current'));if(currentIndex)currentIndex.textContent=String(index+1).padStart(2,'0')+' / '+String(links.length).padStart(2,'0');if(currentTitle)currentTitle.textContent=links[index]?.dataset.sectionTitle||'';for(const [control,target] of [[previous,links[index-1]],[next,links[index+1]]]){if(!control)continue;if(target){control.href=target.href;control.removeAttribute('aria-disabled')}else{control.removeAttribute('href');control.setAttribute('aria-disabled','true')}}if(progress)progress.style.width=((index+1)/Math.max(1,links.length)*100)+'%'};const update=()=>{const offset=nav.getBoundingClientRect().height+24;let index=0;sections.forEach((section,i)=>{if(section&&section.getBoundingClientRect().top<=offset)index=i});setActive(index)};links.forEach(link=>link.addEventListener('click',()=>{const toc=link.closest('details');if(toc)toc.open=false}));addEventListener('scroll',update,{passive:true});addEventListener('resize',update,{passive:true});update()};const init=()=>{hydrate();initNav()};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();})();`;
-const lang = /[\u0400-\u04ff]/.test(`${document.meta?.title ?? ""}${document.meta?.thesis ?? ""}`) ? "ru" : "en";
-const html = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escapeHtml(document.meta?.title ?? "Report")}</title><style>${css}</style></head><body>${body}<script>${echartsRuntime}</script><script>${client}</script></body></html>`;
+const metaTitle = typeof document.meta.title === "string" ? document.meta.title : "Report";
+const metaThesis = typeof document.meta.thesis === "string" ? document.meta.thesis : "";
+const lang = /[\u0400-\u04ff]/.test(`${metaTitle}${metaThesis}`) ? "ru" : "en";
+const html = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escapeHtml(metaTitle)}</title><style>${css}</style></head><body>${body}<script>${echartsRuntime}</script><script>${client}</script></body></html>`;
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, html);
 console.log(JSON.stringify({ type: "REPORT_RENDERED", output: { artifactPath: process.env.OUTPUT_PATH ?? "artifacts/report.html", bytes: Buffer.byteLength(html), charts: chartModels.size } }));
