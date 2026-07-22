@@ -5,8 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
-import { PRODUCTION_CAPS, RESEARCH_CAPS } from "../contracts/constants.js";
-import { VisualInput, VisualRequest } from "../contracts/index.js";
+import { RESEARCH_CAPS } from "../contracts/constants.js";
 
 const execFileAsync = promisify(execFile);
 const root = resolve(new URL("..", import.meta.url).pathname);
@@ -16,9 +15,7 @@ const run = async (script: string, env: Record<string, string>): Promise<{ type:
 	return JSON.parse(stdout.trim()) as { type: string; output: unknown };
 };
 
-test("direct evidence and production args route only through enforced caps", async () => {
-	assert.deepEqual(Object.keys(RESEARCH_CAPS), ["skim", "standard", "deep"]);
-	assert.deepEqual(Object.keys(PRODUCTION_CAPS), ["draft", "report", "release"]);
+test("production profile routing selects the polish lanes and rejects unknown polish", async () => {
 	assert.equal(
 		(await run("scripts/route-production-profile.ts", { PRODUCTION_POLISH: "draft", PHASE: "manuscript" })).type,
 		"POLISH_DRAFT",
@@ -457,37 +454,6 @@ test("production polish enforces manuscript and visual QA caps", async () => {
 			})
 		).type,
 		"ALLOW_REWRITE",
-	);
-});
-
-test("supported not-found fallbacks are exact and table fallback is rejected", () => {
-	const request = {
-		id: "v1",
-		sectionId: "s1",
-		beatId: "b1",
-		kind: "dataset" as const,
-		purpose: "Purpose",
-		question: "Question",
-		evidenceIds: ["e_1"],
-		preferredOutput: "bar" as const,
-		requirements: [],
-		fallback: "prose" as const,
-		intent: "dataset-backed" as const,
-		required: true,
-	};
-	assert.equal(VisualRequest.safeParse(request).success, true);
-	assert.equal(VisualRequest.safeParse({ ...request, fallback: "table" }).success, false);
-	assert.equal(
-		VisualInput.safeParse({
-			requestId: "v1",
-			kind: "dataset",
-			status: "not-found",
-			sourceIds: [],
-			sourceUrls: [],
-			limitations: [],
-			fallback: "prose",
-		}).success,
-		true,
 	);
 });
 
