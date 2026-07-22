@@ -2,6 +2,7 @@
 	"name": "odyssey",
 	"version": "0.1.0",
 	"private": true,
+	"license": "MIT",
 	"description": "Typed, evidence-led Hyperchart report engine with a deterministic self-contained HTML renderer.",
 	"type": "module",
 	"scripts": {
