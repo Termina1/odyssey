@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { ScreenshotManifest, type ScreenshotTile } from "../contracts/index.js";
 import { requiredEnv } from "../contracts/runtime.js";
+import { errorMessage } from "../guards/runtime.js";
 
 type Target = { name: "desktop" | "mobile"; width: number; height: number; tileHeight: number; overlap: number };
 type Segment = { sectionId: string; y: number; height: number };
@@ -83,7 +84,7 @@ try {
 					await page.screenshot({ path: filePath, animations: "disabled" });
 				} catch (error) {
 					throw new Error(
-						`Tile screenshot failed for ${target.name}/${segment.sectionId} at y=${y}: ${error instanceof Error ? error.message : String(error)}`,
+						`Tile screenshot failed for ${target.name}/${segment.sectionId} at y=${y}: ${errorMessage(error)}`,
 					);
 				}
 				tiles.push({
