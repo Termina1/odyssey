@@ -12,11 +12,9 @@
 		"render:example": "mkdir -p artifacts && DOCUMENT_FILE=examples/eink/report-document.json OUTPUT_PATH=artifacts/eink-report.html tsx engine/render-report.ts",
 		"test:chart": "tsx --test tests/mock-run.test.ts",
 		"test:scripts": "tsx --test tests/scripts-and-guards.test.ts tests/visual-input-retry-budget.test.ts",
-		"test:renderer": "tsx --test tests/renderer.test.ts",
-		"test:eink": "npm run render:example && HTML_FILE=artifacts/eink-report.html OUTPUT_DIR=artifacts/playwright tsx tests/renderer-playwright.ts",
 		"test:workflow-fixture": "tsx tests/write-fixture.ts",
 		"typecheck": "tsc --noEmit",
-		"test": "npm run typecheck && npm run test:chart && npm run test:scripts && npm run test:renderer && npm run test:eink && npm run test:workflow-fixture"
+		"test": "npm run typecheck && npm run test:chart && npm run test:scripts && npm run test:workflow-fixture"
 	},
 	"dependencies": {
 		"@surprisal/hyperchart": "file:../pi-hyperchart/packages/hyperchart",

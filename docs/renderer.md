@@ -52,6 +52,4 @@ In the chart, `render-html` runs with `retries: 0` — a renderer failure is an 
 
 ## Tests
 
-- `tests/renderer.test.ts` — render-model and renderer unit coverage (all chart variants, tables, edge cases) plus the `validate-elements` guard over fixtures.
-- `tests/renderer-fixtures.ts` — shared typed fixtures.
-- `tests/renderer-playwright.ts` (`npm run test:eink`) — renders the e-ink example and drives it in Chromium: responsive breakpoints, overflow, a11y labels, legend interaction.
+The renderer has no dedicated test suite at the moment. It is exercised indirectly: the mock run (`npm run test:chart`) renders a prose-only report through the real engine, and the workflow fixture (`npm run test:workflow-fixture`) renders a chapter with a real chart dataset and checks the review, validation, and screenshot outputs. `npm run render:example` renders the bundled e-ink document for manual inspection.

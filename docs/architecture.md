@@ -48,6 +48,6 @@ Each stage is a compound state; `FAILED` from any stage bubbles to the chart-lev
 | `guards/` | Deterministic validation guards run as `validate` scripts. |
 | `scripts/` | Deterministic assembly, routing, budget, packet, patch, and screenshot scripts. |
 | `engine/` | Typed render model + self-contained HTML renderer ([renderer.md](renderer.md)). |
-| `tests/` | Mock-runner chart run, script/budget behavior, renderer, Playwright, and workflow-fixture tests. |
+| `tests/` | Mock-runner chart run, script/budget behavior, and workflow-fixture tests. |
 | `examples/eink/` | A typed example `ReportDocument` and its rendered HTML. |
 | `artifacts/` | Run output (gitignored working directory of a chart run). |
