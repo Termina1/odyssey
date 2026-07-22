@@ -1,13 +1,13 @@
 # Running Odyssey
 
-## Install
+## Prerequisites
 
-```bash
-npm ci
-npx playwright install chromium   # screenshots + Playwright tests
-```
+Odyssey does not run standalone. You need:
 
-The chart depends on `@surprisal/hyperchart` (linked from `../pi-hyperchart`). Everything runs through `tsx`; there is no build step. `npm run typecheck` validates the strict contracts.
+1. **A Hyperchart host** — pi with the hyperchart extension, or Claude Code with the hyperchart plugin (both live in the pi-hyperchart repo). The host owns agent sessions, the durable log, dashboards, and role/toolset resolution; this repo only supplies the chart, agents, contracts, scripts, and renderer.
+2. **pi-hyperchart checked out as a sibling of this repo** — `package.json` links `@surprisal/hyperchart` from `../pi-hyperchart/packages/hyperchart`.
+3. **`npm install`** — chart scripts and guards execute through the workflow-local `node_modules/.bin/tsx`, so without installed dependencies every script state fails. There is no build step; `npm run typecheck` validates the strict contracts.
+4. **Chromium via Playwright — only for `report`/`release` polish** (`npx playwright install chromium`): the screenshot-QA loop drives a headless browser. `draft` runs and the renderer itself don't need it. (`npm run test:eink` needs it too.)
 
 ### Make the chart discoverable
 

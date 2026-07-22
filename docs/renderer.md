@@ -1,6 +1,6 @@
 # Renderer
 
-The renderer is the only component in Odyssey that produces HTML. It is fully deterministic: the same `ReportDocument` always yields byte-identical output, which is what makes render bugs fixable once and screenshots meaningful as QA evidence.
+The renderer is the only component in Odyssey that produces HTML — and the only one that runs without a Hyperchart host (plain `tsx`, see the direct API below). It is fully deterministic: the same `ReportDocument` always yields byte-identical output, which is what makes render bugs fixable once and screenshots meaningful as QA evidence.
 
 ## Two layers
 

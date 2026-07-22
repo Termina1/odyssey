@@ -1,6 +1,6 @@
 # Architecture
 
-Odyssey is a durable, typed [Hyperchart](https://github.com/surprisal/pi-hyperchart) statechart that turns a single prompt into an evidence-led, self-contained interactive HTML report. The whole engine is one chart (`chart.ts`, ~86 states) plus 14 agent definitions, a set of deterministic TypeScript scripts and guards, shared Zod contracts, and a deterministic renderer.
+Odyssey is a durable, typed [Hyperchart](https://github.com/surprisal/pi-hyperchart) statechart that turns a single prompt into an evidence-led, self-contained interactive HTML report. The whole engine is one chart (`chart.ts`, ~86 states) plus 14 agent definitions, a set of deterministic TypeScript scripts and guards, shared Zod contracts, and a deterministic renderer. It is not a standalone application: the chart executes inside a Hyperchart host (pi or Claude Code), which owns agent sessions, the durable log, and role→model resolution; only the renderer works without a host.
 
 ## The pipeline at a glance
 

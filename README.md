@@ -2,13 +2,15 @@
 
 Odyssey turns a prompt into an evidence-led, self-contained interactive HTML report through a durable, typed [Hyperchart](https://github.com/surprisal/pi-hyperchart) workflow: three-angle research fans out into a content-addressed evidence index, a verified narrative plan, and parallel chapter production, ending in a deterministic renderer. Agents produce only typed JSON — every artifact is contract-validated, every loop is budget-bounded, and all HTML comes from one deterministic engine.
 
-## Quickstart
+## Running it
+
+Odyssey is a Hyperchart chart, not a standalone app. `chart.ts` runs only inside a Hyperchart host — pi with the hyperchart extension, or Claude Code with the hyperchart plugin — which owns the agent sessions, the durable log, and role→model resolution. This repo supplies the chart, agents, contracts, scripts, and renderer; the renderer is the only piece that works without a host ([docs/renderer.md](docs/renderer.md)).
 
 ```bash
-npm ci
-npx playwright install chromium
+# pi-hyperchart must be checked out next to this repo — @surprisal/hyperchart links to it
+npm install
 
-# make the chart discoverable to your Hyperchart host (pi shown; Claude Code: ~/.claude/hypercharts)
+# make the chart discoverable to the host (pi shown; Claude Code: ~/.claude/hypercharts)
 ln -sfn "$(pwd)" ~/.pi/agent/hypercharts/odyssey
 ```
 
@@ -22,7 +24,7 @@ hyperchart_run  chartPath: "~/.pi/agent/hypercharts/odyssey/chart.ts"  args: {
 }
 ```
 
-The finished report lands at `artifacts/report.html`. Role→model mappings, monitoring, failure recovery, and the test suite are covered in [docs/running.md](docs/running.md).
+The finished report lands at `artifacts/report.html`. Chromium (`npx playwright install chromium`) is needed only for `report`/`release` polish, whose screenshot-QA loop drives a headless browser — `draft` runs without it. Role→model mappings, monitoring, failure recovery, and the test suite are covered in [docs/running.md](docs/running.md).
 
 ## Documentation
 
