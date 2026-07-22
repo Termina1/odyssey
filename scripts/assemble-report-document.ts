@@ -13,10 +13,10 @@ import {
 } from "../contracts/index.js";
 import { parseJsonFile, requiredEnv } from "../contracts/runtime.js";
 
-const plan = await parseJsonFile(process.env.PLAN_FILE ?? "", ReportPlan);
-const evidence = await parseJsonFile(process.env.EVIDENCE_FILE ?? "", EvidenceIndex);
-const experience = await parseJsonFile(process.env.EXPERIENCE_FILE ?? "", ExperiencePlan);
-const work = await parseJsonFile(process.env.WORK_FILE ?? "", SectionWorkItems);
+const plan = await parseJsonFile(requiredEnv("PLAN_FILE"), ReportPlan);
+const evidence = await parseJsonFile(requiredEnv("EVIDENCE_FILE"), EvidenceIndex);
+const experience = await parseJsonFile(requiredEnv("EXPERIENCE_FILE"), ExperiencePlan);
+const work = await parseJsonFile(requiredEnv("WORK_FILE"), SectionWorkItems);
 const visualInputs: Array<z.infer<typeof VisualCatalog>["inputs"][number]> = [];
 const chapters: Array<z.infer<typeof SectionPackage>> = [];
 const elements: Array<z.infer<typeof ElementPackage>> = [];

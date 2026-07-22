@@ -1,7 +1,9 @@
+import { PRODUCTION_CAPS, type ProductionPolish } from "../contracts/constants.js";
 import { ManuscriptGateFeedback } from "../contracts/index.js";
 import { parseJsonText } from "../contracts/runtime.js";
 
-const MAX_TARGETED_REWRITES = 2;
+const polish = (process.env.PRODUCTION_POLISH ?? "report") as ProductionPolish;
+const MAX_TARGETED_REWRITES = PRODUCTION_CAPS[polish]?.chapterRewriteCap ?? PRODUCTION_CAPS.report.chapterRewriteCap;
 const visit = Number.parseInt(process.env.BUDGET_VISIT ?? "0", 10);
 const feedback = parseJsonText(process.env.FEEDBACK_JSON ?? "{}", ManuscriptGateFeedback, "FEEDBACK_JSON");
 const output = {

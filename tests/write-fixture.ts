@@ -4,7 +4,14 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { ScreenshotManifest, SectionWorkItems } from "../contracts/index.js";
+import {
+	PlanGateFeedback,
+	RenderReview,
+	RenderValidationOutput,
+	ScreenshotManifest,
+	SectionWorkItems,
+	VisualWorkItems,
+} from "../contracts/index.js";
 import { parseJsonFile, parseJsonText } from "../contracts/runtime.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -18,6 +25,15 @@ const writeJson = async (path: string, value: unknown): Promise<void> => {
 };
 const run = (script: string, env: Record<string, string>): string =>
 	execFileSync("tsx", [resolve(root, script)], { cwd: work, env: { ...process.env, ...env }, encoding: "utf8" }).trim();
+const runRejected = (script: string, env: Record<string, string>): string => {
+	try {
+		run(script, env);
+		throw new Error(`${script} unexpectedly accepted invalid input`);
+	} catch (error) {
+		const stderr = (error as { stderr?: string | Buffer }).stderr;
+		return typeof stderr === "string" ? stderr : (stderr?.toString("utf8") ?? "");
+	}
+};
 
 const evidence = {
 	evidence: [
@@ -76,7 +92,9 @@ const request = {
 	evidenceIds: ["e_1"],
 	preferredOutput: "line",
 	requirements: ["two dated points"],
-	fallback: "table",
+	fallback: "prose",
+	intent: "dataset-backed",
+	required: true,
 };
 const experience = {
 	direction: "Editorial analytical",
@@ -104,7 +122,8 @@ const chapterPlan = {
 	layout: "split",
 	openingClaim: "The curve changed",
 	handoff: "What follows",
-	visualRequests: { v1: request },
+	elementIntents: { b1: { beatId: "b1", mode: "dataset-backed", output: "line", guaranteedUse: true } },
+	visualRequests: { v1: { ...request, intent: "dataset-backed", required: true } },
 };
 const visual = {
 	requestId: "v1",
@@ -131,37 +150,76 @@ const visual = {
 };
 await writeJson("artifacts/evidence.json", evidence);
 await writeJson("artifacts/plan.json", plan);
+await writeJson("artifacts/strategy-fixture.json", {
+	title: plan.title,
+	objective: plan.objective,
+	thesis: plan.thesis,
+	readerQuestion: plan.readerQuestion,
+	sections: plan.sections.map(({ beatIds: _beatIds, ...section }) => section),
+	exclusions: [],
+	styleNotes: [],
+});
+await writeJson("artifacts/beats-candidate-fixture.json", { beats: [beat] });
 await writeJson("artifacts/experience.json", experience);
 await writeJson("artifacts/visual.json", visual);
+await writeJson("artifacts/chapter-plan-fixture.json", chapterPlan);
+run("scripts/prepare-visual-work.ts", {
+	CHAPTER_PLAN_FILE: "artifacts/chapter-plan-fixture.json",
+	EVIDENCE_FILE: "artifacts/evidence.json",
+	PACKET_DIR: "artifacts/visual-packets",
+	OUTPUT_PATH: "artifacts/visual-work.json",
+});
+const visualWork = await parseJsonFile(resolve(work, "artifacts/visual-work.json"), VisualWorkItems);
+const visualPacketPath = visualWork.items.v1?.packetPath;
+if (!visualPacketPath) throw new Error("visual packet missing");
+await writeJson("artifacts/visual-packet-wrong.json", {
+	request: { ...request, id: "wrong" },
+	evidence: evidence.evidence,
+	sources: evidence.sources,
+});
 
 if (
-	!run("scripts/validate-experience.ts", {
-		PLAN_FILE: "artifacts/plan.json",
+	!run("guards/validate-experience.ts", {
+		STRATEGY_FILE: "artifacts/strategy-fixture.json",
+		CANDIDATE_FILE: "artifacts/beats-candidate-fixture.json",
 		EVIDENCE_FILE: "artifacts/evidence.json",
 		EXPERIENCE_FILE: "artifacts/experience.json",
 	}).includes("EXPERIENCE_VALID")
 )
 	throw new Error("experience validation failed");
 if (
-	!run("scripts/validate-visual-input.ts", {
-		REQUEST_JSON: JSON.stringify(request),
+	!run("guards/validate-visual-input.ts", {
+		PACKET_FILE: visualPacketPath,
 		INPUT_FILE: "artifacts/visual.json",
-		EVIDENCE_FILE: "artifacts/evidence.json",
+		FEEDBACK_FILE: "artifacts/visual-validation-feedback.json",
 	}).includes("VISUAL_INPUT_VALID")
 )
 	throw new Error("visual validation failed");
-const badRequest = { ...request, id: "wrong" };
 if (
-	!run("scripts/validate-visual-input.ts", {
-		REQUEST_JSON: JSON.stringify(badRequest),
+	!run("guards/validate-visual-input.ts", {
+		PACKET_FILE: visualPacketPath,
 		INPUT_FILE: "artifacts/visual.json",
-		EVIDENCE_FILE: "artifacts/evidence.json",
-	}).includes("VISUAL_INPUT_INVALID")
+	}).includes("VISUAL_INPUT_VALID")
+)
+	throw new Error("visual validation incorrectly required a feedback file");
+if (
+	!runRejected("guards/validate-visual-input.ts", {
+		PACKET_FILE: "artifacts/visual-packet-wrong.json",
+		INPUT_FILE: "artifacts/visual.json",
+		FEEDBACK_FILE: "artifacts/visual-validation-feedback.json",
+	}).includes("requestId mismatch")
 )
 	throw new Error("invalid visual id was accepted");
+const visualValidationFeedback = await parseJsonFile(
+	resolve(work, "artifacts/visual-validation-feedback.json"),
+	PlanGateFeedback,
+);
+if (!visualValidationFeedback.reason.includes("requestId mismatch"))
+	throw new Error("visual guard rejection reason was not persisted for retry routing");
 run("scripts/prepare-chapter-work.ts", {
 	PLAN_FILE: "artifacts/plan.json",
 	EXPERIENCE_FILE: "artifacts/experience.json",
+	EVIDENCE_FILE: "artifacts/evidence.json",
 	OUTPUT_PATH: "artifacts/work.json",
 });
 const workItems = await parseJsonFile(resolve(work, "artifacts/work.json"), SectionWorkItems);
@@ -215,7 +273,7 @@ const section = {
 await writeJson(item.elementPath, elements);
 await writeJson(item.chapterPath, section);
 if (
-	!run("scripts/validate-elements.ts", {
+	!run("guards/validate-elements.ts", {
 		WORK_JSON: JSON.stringify(item),
 		ELEMENTS_FILE: item.elementPath,
 		VISUAL_CATALOG_FILE: item.visualCatalogPath,
@@ -256,11 +314,18 @@ const metricElements = {
 	],
 };
 await writeJson("artifacts/metric-visual.json", metricVisual);
+const metricRequest = { ...request, id: "metrics", preferredOutput: "metric-strip" as const };
+await writeJson("artifacts/metric-chapter-plan.json", {
+	...chapterPlan,
+	elementIntents: { b1: { beatId: "b1", mode: "dataset-backed", output: "metric-strip", guaranteedUse: true } },
+	visualRequests: { metrics: metricRequest },
+});
 await writeJson("artifacts/metric-catalog.json", { sectionId: "s1", inputs: [metricVisual] });
+const metricWork = { ...item, chapterPlanPath: "artifacts/metric-chapter-plan.json" };
 await writeJson("artifacts/metric-elements.json", metricElements);
 if (
-	!run("scripts/validate-elements.ts", {
-		WORK_JSON: JSON.stringify(item),
+	!run("guards/validate-elements.ts", {
+		WORK_JSON: JSON.stringify(metricWork),
 		ELEMENTS_FILE: "artifacts/metric-elements.json",
 		VISUAL_CATALOG_FILE: "artifacts/metric-catalog.json",
 	}).includes("ELEMENTS_VALID")
@@ -269,15 +334,15 @@ if (
 metricElements.blocks[0].metrics[0].valueField = "missing";
 await writeJson("artifacts/metric-elements-invalid.json", metricElements);
 if (
-	!run("scripts/validate-elements.ts", {
-		WORK_JSON: JSON.stringify(item),
+	!runRejected("guards/validate-elements.ts", {
+		WORK_JSON: JSON.stringify(metricWork),
 		ELEMENTS_FILE: "artifacts/metric-elements-invalid.json",
 		VISUAL_CATALOG_FILE: "artifacts/metric-catalog.json",
-	}).includes("ELEMENTS_INVALID")
+	}).includes("unknown value field")
 )
 	throw new Error("invalid metric selector was accepted");
 if (
-	!run("scripts/validate-chapter.ts", {
+	!run("guards/validate-chapter.ts", {
 		WORK_JSON: JSON.stringify(item),
 		ELEMENTS_FILE: item.elementPath,
 		CHAPTER_FILE: item.chapterPath,
@@ -312,18 +377,25 @@ run("scripts/assemble-report-document.ts", {
 	VISUAL_FILES: JSON.stringify(["artifacts/visual.json"]),
 	OUTPUT_PATH: "artifacts/report-document.json",
 });
-run("engine/render-report.ts", {
-	DOCUMENT_FILE: "artifacts/report-document.json",
-	OUTPUT_PATH: "artifacts/report.html",
-});
 if (
-	!run("scripts/validate-render.ts", {
+	!run("engine/render-report.ts", {
 		DOCUMENT_FILE: "artifacts/report-document.json",
-		HTML_FILE: "artifacts/report.html",
-		OUTPUT_PATH: "artifacts/render-review.json",
-	}).includes("RENDER_VALIDATED")
+		OUTPUT_PATH: "artifacts/report.html",
+		REVIEW_OUTPUT_PATH: "artifacts/render-review.json",
+	}).includes("REPORT_RENDERED")
 )
-	throw new Error("render validation failed");
+	throw new Error("render failed");
+const renderReview = await parseJsonFile(resolve(work, "artifacts/render-review.json"), RenderReview);
+if (!renderReview.pass) throw new Error("render validation failed");
+run("scripts/validate-render.ts", {
+	DOCUMENT_FILE: "artifacts/report-document.json",
+	HTML_FILE: "artifacts/report.html",
+	REVIEW_FILE: "artifacts/render-review.json",
+	OUTPUT_PATH: "artifacts/render-validation.json",
+});
+const renderValidation = await parseJsonFile(resolve(work, "artifacts/render-validation.json"), RenderValidationOutput);
+if (!renderValidation.pass || renderValidation.artifactPath !== "artifacts/report.html")
+	throw new Error("render guard artifact mismatch");
 const screenshots = parseJsonText(
 	run("scripts/screenshot-report.ts", {
 		HTML_FILE: "artifacts/report.html",

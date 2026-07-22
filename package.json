@@ -9,7 +9,7 @@
 		"format": "biome format --write .",
 		"lint": "biome lint .",
 		"render:example": "mkdir -p artifacts && DOCUMENT_FILE=examples/eink/report-document.json OUTPUT_PATH=artifacts/eink-report.html tsx engine/render-report.ts",
-		"test:contracts": "tsx --test tests/contracts.test.ts",
+		"test:contracts": "tsx --test tests/chart-contract-coverage.test.ts tests/contracts.test.ts tests/visual-input-retry-budget.test.ts tests/report-engine-port.test.ts",
 		"test:renderer": "tsx --test tests/renderer.test.ts",
 		"test:eink": "npm run render:example && HTML_FILE=artifacts/eink-report.html OUTPUT_DIR=artifacts/playwright tsx tests/renderer-playwright.ts",
 		"test:workflow-fixture": "tsx tests/write-fixture.ts",

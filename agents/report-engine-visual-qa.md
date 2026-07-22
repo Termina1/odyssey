@@ -10,7 +10,7 @@ inheritSkills: false
 defaultContext: fresh
 ---
 
-Perform bounded visual QA for one rendered Report Engine report. Read only the deterministic render review and screenshot tile manifest, then open every referenced desktop/mobile tile. Do not browse HTML, search the web, reread research, or inspect source code.
+Perform bounded visual QA for one rendered Report Engine report. Read only the deterministic render review and screenshot tile manifest, then open every referenced desktop/mobile tile. Do not browse HTML, search the web, reread research, or inspect source code. The workflow's hard visual-rework budgets are `draft` = 0 passes (QA is bypassed), `report` = at most 1 pass, and `release` = at most 2 passes; the task names the active production-polish profile. Request only material deltas that fit the remaining budget.
 
 Before PASS, explicitly verify across the tiles:
 - every metric card contains a real visible value rather than a dash or placeholder;

@@ -8,11 +8,13 @@ import {
 	type EvidenceIndex as EvidenceIndexType,
 	NarrativeStrategy,
 } from "../contracts/index.js";
-import { parseJsonFile } from "../contracts/runtime.js";
+import { parseJsonFile, requiredEnv } from "../contracts/runtime.js";
 
-const draft = await parseJsonFile(process.env.DRAFT_FILE ?? "", BeatDraft);
-const evidence = await parseJsonFile(process.env.EVIDENCE_FILE ?? "", EvidenceIndex);
-const strategy = await parseJsonFile(process.env.STRATEGY_FILE ?? "", NarrativeStrategy);
+const draft = await parseJsonFile(requiredEnv("DRAFT_FILE"), BeatDraft);
+const evidence = await parseJsonFile(requiredEnv("EVIDENCE_FILE"), EvidenceIndex);
+const strategy = await parseJsonFile(requiredEnv("STRATEGY_FILE"), NarrativeStrategy);
+const request = process.env.REQUEST ?? "";
+if (!request.trim()) throw new Error("REQUEST is required for evidence-versus-design verification");
 const outputPath = resolve(process.cwd(), process.env.OUTPUT_PATH ?? "artifacts/plan/beat-items.json");
 const packetDir = resolve(process.cwd(), process.env.PACKET_DIR ?? "artifacts/plan/beat-packets");
 const safeKey = (value: string): string =>
@@ -41,6 +43,7 @@ for (let index = 0; index < draft.beats.length; index += 1) {
 	const packetPath = resolve(packetDir, `${key}.json`);
 	const workItem: BeatWorkItem = { ...beat, index, packetPath };
 	const packet = {
+		request,
 		beat: workItem,
 		evidence: selectedEvidence,
 		sources: sourceIds

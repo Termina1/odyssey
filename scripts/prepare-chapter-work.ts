@@ -1,11 +1,18 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { ExperiencePlan, ReportPlan, type SectionWorkItem, SectionWorkItems } from "../contracts/index.js";
-import { parseJsonFile, requiredEnv } from "../contracts/runtime.js";
+import {
+	EvidenceIndex,
+	ExperiencePlan,
+	ReportPlan,
+	type SectionWorkItem,
+	SectionWorkItems,
+} from "../contracts/index.js";
+import { emit, parseJsonFile, requiredEnv, writeJsonArtifact } from "../contracts/runtime.js";
 
-const plan = await parseJsonFile(process.env.PLAN_FILE ?? "", ReportPlan);
-const experience = await parseJsonFile(process.env.EXPERIENCE_FILE ?? "", ExperiencePlan);
+const plan = await parseJsonFile(requiredEnv("PLAN_FILE"), ReportPlan);
+const experience = await parseJsonFile(requiredEnv("EXPERIENCE_FILE"), ExperiencePlan);
+const evidence = await parseJsonFile(requiredEnv("EVIDENCE_FILE"), EvidenceIndex);
 const beatsById = new Map(plan.beats.map((beat) => [beat.id, beat]));
+const evidenceById = new Map(evidence.evidence.map((entry) => [entry.id, entry]));
+const sourcesById = new Map(evidence.sources.map((entry) => [entry.id, entry]));
 const items: Record<string, SectionWorkItem> = {};
 for (let index = 0; index < plan.sections.length; index += 1) {
 	const section = plan.sections[index];
@@ -14,12 +21,23 @@ for (let index = 0; index < plan.sections.length; index += 1) {
 	const beats = section.beatIds
 		.map((id) => beatsById.get(id))
 		.filter((beat): beat is ReportPlan["beats"][number] => Boolean(beat));
+	const sectionEvidence = [...new Set(beats.flatMap((beat) => beat.evidenceIds))].flatMap((id) => {
+		const entry = evidenceById.get(id);
+		return entry === undefined ? [] : [entry];
+	});
+	const sectionSources = [...new Set(sectionEvidence.flatMap((entry) => entry.sourceIds))].flatMap((id) => {
+		const source = sourcesById.get(id);
+		return source === undefined ? [] : [source];
+	});
 	items[section.id] = {
 		sectionId: section.id,
 		index,
 		section,
 		beats,
+		evidence: sectionEvidence,
+		sources: sectionSources,
 		experience: experienceSection,
+		maxBlocks: experience.globalRules.maxBlocksPerSection,
 		chapterPlanPath: `artifacts/write/chapters/${section.id}/chapter-plan.json`,
 		visualCatalogPath: `artifacts/write/chapters/${section.id}/visual-inputs.json`,
 		elementPath: `artifacts/write/chapters/${section.id}/elements.json`,
@@ -27,7 +45,5 @@ for (let index = 0; index < plan.sections.length; index += 1) {
 	};
 }
 const output = SectionWorkItems.parse({ items, count: Object.keys(items).length });
-const outputPath = resolve(process.cwd(), requiredEnv("OUTPUT_PATH"));
-await mkdir(dirname(outputPath), { recursive: true });
-await writeFile(outputPath, `${JSON.stringify(output, null, 2)}\n`);
-console.log(JSON.stringify({ type: "CHAPTER_WORK_READY", output }));
+await writeJsonArtifact(requiredEnv("OUTPUT_PATH"), output);
+emit("CHAPTER_WORK_READY", output);

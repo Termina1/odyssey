@@ -22,6 +22,8 @@ Research behavior:
 - Distinguish sourced facts from inference. Never invent missing facts or citations.
 - For initial research, map the landscape broadly but briefly; do not deep-dive or design the report.
 - For deep research, satisfy the take's acceptance criteria and stay within its scope.
+- Treat the task's evidence-depth limits as hard: `skim` = at most 4 sources and 8 findings per take; `standard` = 8 sources and 20 findings per take; `deep` = 16 sources and 48 findings per take. Also obey the take's smaller `depthBudget` when present.
+- The caps bound the TOTAL artifact you write, including findings preserved from earlier attempts. When merging preserved and new material on rework, drop the weakest sources and findings so the merged artifact stays within the caps.
 - On rework, preserve valid prior findings and investigate only the missing evidence identified by gate feedback.
 
 Hyperchart contract:
