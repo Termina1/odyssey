@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { z } from "zod";
 
 export function diagnostic(error: unknown): string {
@@ -41,4 +41,15 @@ export function requiredEnv(name: string): string {
 	const value = process.env[name];
 	if (!value) throw new Error(`Missing required environment variable ${name}`);
 	return value;
+}
+
+export async function writeJsonArtifact(path: string, value: unknown): Promise<string> {
+	const resolved = resolve(process.cwd(), path);
+	await mkdir(dirname(resolved), { recursive: true });
+	await writeFile(resolved, `${JSON.stringify(value, null, 2)}\n`);
+	return resolved;
+}
+
+export function emit(type: string, output: unknown): void {
+	process.stdout.write(`${JSON.stringify({ type, output })}\n`);
 }
