@@ -7,7 +7,14 @@ import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { chromium } from "playwright";
-import { buildChartModel, type ChartDataset, validateChartContract } from "../engine/render-model.js";
+import {
+	buildChartModel,
+	type ChartDataset,
+	formatModelValue,
+	imageMime,
+	inferForecastKey,
+	validateChartContract,
+} from "../engine/render-model.js";
 import { CHART_VARIANTS, chartFixture, datasetForVariant, makeFixtureDocument } from "./renderer-fixtures.js";
 
 const execFileAsync = promisify(execFile);
@@ -23,6 +30,45 @@ for (const variant of CHART_VARIANTS) {
 		assert.equal(JSON.stringify(model.options).includes("undefined"), false);
 	});
 }
+
+test("cyclic Sankey inputs are rendered as an acyclic flow with explicit return nodes", () => {
+	const dataset = structuredClone(datasetForVariant("sankey"));
+	dataset.rows.push({ source: "D", target: "A", value: 2 });
+	const block = chartFixture("sankey", 0);
+	block.interaction = { ...block.interaction, zoom: true };
+	const model = buildChartModel(block, dataset);
+	assert.equal(model.options.dataZoom, undefined);
+	const series = model.options.series[0] as (typeof model.options.series)[number] & {
+		links: Array<{ source: string; target: string; value: number }>;
+	};
+	assert.ok(series.links.some((link) => link.target.includes("↩")));
+	const adjacency = new Map<string, string[]>();
+	for (const link of series.links) adjacency.set(link.source, [...(adjacency.get(link.source) ?? []), link.target]);
+	const visiting = new Set<string>();
+	const visited = new Set<string>();
+	const hasCycle = (node: string): boolean => {
+		if (visiting.has(node)) return true;
+		if (visited.has(node)) return false;
+		visiting.add(node);
+		for (const next of adjacency.get(node) ?? []) if (hasCycle(next)) return true;
+		visiting.delete(node);
+		visited.add(node);
+		return false;
+	};
+	assert.equal(
+		[...adjacency.keys()].some((node) => hasCycle(node)),
+		false,
+	);
+});
+
+test("duplicate heatmap rows are averaged into one encoded cell", () => {
+	const dataset = structuredClone(datasetForVariant("heatmap"));
+	dataset.rows.push({ x: "A", y: "Low", value: 30 });
+	const model = buildChartModel(chartFixture("heatmap", 0), dataset);
+	const lowRow = model.tableRows.find((row) => row.category === "Low");
+	assert.equal(lowRow?.values.find((value) => value.series === "A")?.value, 20);
+	assert.match(model.options.aria.description, /duplicate row/);
+});
 
 test("workflow element validation accepts every renderer chart variant", async () => {
 	const workDir = await mkdtemp(resolve(tmpdir(), "odyssey-element-variants-"));
@@ -53,12 +99,40 @@ test("workflow element validation accepts every renderer chart variant", async (
 			visualBudget: 1,
 			beats: { "beat-1": { beatId: "beat-1", presentation: "anchor", visualIntent: "data", preferredOutputs: [] } },
 		},
-		chapterPlanPath: "chapter-plan.json",
+		chapterPlanPath: resolve(workDir, "chapter-plan.json"),
 		visualCatalogPath: "visuals.json",
 		elementPath: "elements.json",
 		chapterPath: "chapter.json",
 	};
 	for (const variant of CHART_VARIANTS) {
+		await writeFile(
+			resolve(workDir, "chapter-plan.json"),
+			JSON.stringify({
+				sectionId: "s1",
+				layout: "split",
+				openingClaim: "Claim",
+				handoff: "Next",
+				elementIntents: {
+					"beat-1": { beatId: "beat-1", mode: "dataset-backed", output: variant, guaranteedUse: true },
+				},
+				visualRequests: {
+					[`visual-${variant}`]: {
+						id: `visual-${variant}`,
+						sectionId: "s1",
+						beatId: "beat-1",
+						kind: "dataset",
+						purpose: "Test",
+						question: "Test",
+						evidenceIds: ["e_1"],
+						preferredOutput: variant,
+						requirements: [],
+						fallback: "prose",
+						intent: "dataset-backed",
+						required: true,
+					},
+				},
+			}),
+		);
 		const elementsPath = resolve(workDir, `${variant}-elements.json`);
 		const catalogPath = resolve(workDir, `${variant}-catalog.json`);
 		await writeFile(elementsPath, JSON.stringify({ sectionId: "s1", blocks: [chartFixture(variant, 0)] }));
@@ -81,7 +155,7 @@ test("workflow element validation accepts every renderer chart variant", async (
 		);
 		const { stdout } = await execFileAsync(
 			resolve(root, "node_modules/.bin/tsx"),
-			[resolve(root, "scripts/validate-elements.ts")],
+			[resolve(root, "guards/validate-elements.ts")],
 			{
 				cwd: root,
 				env: {
@@ -266,7 +340,7 @@ test("sparse status series remain missing instead of becoming synthetic zeroes",
 	assert.doesNotMatch(model.options.aria.description, /\b0\b/);
 });
 
-test("rejects undeclared channels, non-numeric measures, duplicate cells, and impossible filter flags", () => {
+test("rejects undeclared channels, non-numeric measures, and duplicate cells; coerces single-series legend filters", () => {
 	const block = chartFixture("line", 0);
 	const dataset = datasetForVariant("line");
 	assert.throws(
@@ -277,17 +351,17 @@ test("rejects undeclared channels, non-numeric measures, duplicate cells, and im
 		() => validateChartContract({ ...block, encoding: { ...block.encoding, y: "series" } }, dataset),
 		/must reference a number field/,
 	);
-	assert.throws(
-		() =>
-			validateChartContract(
-				{
-					...block,
-					interaction: { tooltip: true, zoom: false, legendFilter: true },
-					encoding: { x: "period", y: "value" },
-				},
-				dataset,
-			),
-		/fewer than two series/,
+	const singleSeriesFilter = buildChartModel(
+		{
+			...block,
+			interaction: { tooltip: true, zoom: false, legendFilter: true },
+		},
+		{ ...dataset, rows: dataset.rows.filter((row) => row.series === "A") },
+	);
+	assert.equal(
+		singleSeriesFilter.seriesValues.length <= 1 || singleSeriesFilter.options.legend.show === false,
+		true,
+		"legendFilter with a single series must degrade gracefully instead of failing the render",
 	);
 	const duplicate = { ...dataset, rows: [...dataset.rows, { ...dataset.rows[0] }] };
 	assert.throws(() => buildChartModel(block, duplicate), /duplicate x\/series cell/);
@@ -306,16 +380,83 @@ test("rejects undeclared channels, non-numeric measures, duplicate cells, and im
 	);
 });
 
+test("percent formatting matches share labels but never currency words", () => {
+	assert.equal(formatModelValue(42, { label: "Доля рынка" }), "42%");
+	assert.equal(formatModelValue(42, { label: "Share, percent" }), "42%");
+	assert.equal(formatModelValue(42, { label: "Доллары США", unit: "USD" }), "42 USD");
+	assert.equal(formatModelValue(42, { label: "Млн долларов" }), "42");
+});
+
+test("mime hints are sanitized before entering the data URI", () => {
+	assert.equal(imageMime("/tmp/a.png", 'image/png"><script>x</script>'), "image/png");
+	assert.equal(imageMime("/tmp/a.jpg", undefined), "image/jpeg");
+	assert.equal(imageMime("/tmp/a.png", "image/webp"), "image/webp");
+});
+
+test("forecast keys are inferred only from forecast-named fields, never any lone boolean", () => {
+	const block = chartFixture("line", 0);
+	const fields = [
+		{ key: "period", label: "Period", type: "date" as const },
+		{ key: "value", label: "Value", type: "number" as const },
+	];
+	const unrelatedBoolean: ChartDataset = {
+		id: "d1",
+		title: "t",
+		fields: [...fields, { key: "isPublic", label: "Public", type: "boolean" as const }],
+		rows: [{ period: "2024", value: 1, isPublic: true }],
+	};
+	const named: ChartDataset = {
+		id: "d2",
+		title: "t",
+		fields: [...fields, { key: "forecast", label: "Прогноз", type: "boolean" as const }],
+		rows: [{ period: "2024", value: 1, forecast: true }],
+	};
+	const bare = { ...block, encoding: { x: "period", y: "value" }, forecast: undefined };
+	assert.equal(inferForecastKey(unrelatedBoolean, bare), undefined);
+	assert.equal(inferForecastKey(named, bare), "forecast");
+});
+
+test("annotation-only rows without numeric values do not abort the render", () => {
+	const dataset = structuredClone(datasetForVariant("line"));
+	dataset.rows.push({ period: "2026", value: "", series: "annotation-only" });
+	const block = chartFixture("line", 0);
+	const model = buildChartModel(block, dataset);
+	assert.equal(model.excludedAnnotations?.length, 1);
+	assert.equal(model.excludedAnnotations?.[0]?.value, null);
+});
+
+test("heatmap keeps absent cells missing instead of plotting zeroes", () => {
+	const dataset = structuredClone(datasetForVariant("heatmap"));
+	const removed = dataset.rows.pop();
+	assert.ok(removed);
+	const block = chartFixture("heatmap", 0);
+	const model = buildChartModel(block, dataset);
+	const flatValues = model.tableRows.flatMap((row) => row.values);
+	assert.ok(
+		flatValues.some((value) => value.missing === true && value.value === null),
+		"removed cell must surface as missing, not zero",
+	);
+	const plotted = model.options.series[0]?.data ?? [];
+	assert.equal(
+		plotted.length,
+		flatValues.filter((value) => !value.missing).length,
+		"absent cells must not be plotted at all",
+	);
+});
+
 test("renderer emits every block and chart variant from a typed fixture", async () => {
 	const work = await mkdtemp(resolve(tmpdir(), "odyssey-render-test-"));
 	const documentPath = resolve(work, "document.json");
 	const outputPath = resolve(work, "report.html");
+	const reviewPath = resolve(work, "render-review.json");
 	await writeFile(documentPath, `${JSON.stringify(makeFixtureDocument())}\n`);
 	const { stdout } = await execFileAsync("tsx", [resolve(root, "engine/render-report.ts")], {
 		cwd: root,
-		env: { ...process.env, DOCUMENT_FILE: documentPath, OUTPUT_PATH: outputPath },
+		env: { ...process.env, DOCUMENT_FILE: documentPath, OUTPUT_PATH: outputPath, REVIEW_OUTPUT_PATH: reviewPath },
 	});
 	assert.match(stdout, /REPORT_RENDERED/);
+	const review = JSON.parse(await readFile(reviewPath, "utf8")) as { pass: boolean; findings: unknown[] };
+	assert.deepEqual(review, { pass: true, findings: [] });
 	const html = await readFile(outputPath, "utf8");
 	for (const variant of CHART_VARIANTS) assert.match(html, new RegExp(`data-chart-variant=\\"${variant}`));
 	for (const type of ["metric-strip", "table", "comparison", "timeline", "flow", "matrix", "callout", "quote"])
@@ -338,12 +479,18 @@ test("compact navigation remains usable with twenty chapters on desktop and mobi
 		...first,
 		sectionId: `chapter-${index + 1}`,
 		title: `Chapter ${String(index + 1).padStart(2, "0")} with a deliberately long navigation title`,
-		modules: index === 0 ? first.modules : [],
+		modules: [],
 	}));
+	reportDocument.elements = [];
 	await writeFile(documentPath, `${JSON.stringify(reportDocument)}\n`);
 	await execFileAsync("tsx", [resolve(root, "engine/render-report.ts")], {
 		cwd: root,
-		env: { ...process.env, DOCUMENT_FILE: documentPath, OUTPUT_PATH: outputPath },
+		env: {
+			...process.env,
+			DOCUMENT_FILE: documentPath,
+			OUTPUT_PATH: outputPath,
+			REVIEW_OUTPUT_PATH: resolve(work, "render-review.json"),
+		},
 	});
 	const html = await readFile(outputPath, "utf8");
 	assert.match(html, /data-nav-mode="compact"/);

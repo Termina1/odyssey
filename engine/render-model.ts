@@ -1,5 +1,13 @@
 import { extname } from "node:path";
-import { ChartVariant, type Dataset, type DatasetField, type RichBlock } from "../contracts/index.js";
+import {
+	allowedChartEncodings,
+	ChartVariant,
+	chartFamily,
+	type Dataset,
+	type DatasetField,
+	type RichBlock,
+	requiredChartEncodings,
+} from "../contracts/index.js";
 
 export type ChartBlock = Extract<RichBlock, { type: "chart" }>;
 export type ChartDataset = Pick<Dataset, "id" | "title" | "fields" | "rows"> &
@@ -53,7 +61,7 @@ export type ChartModel = {
 	sizeField?: DatasetField;
 	forecastKey?: string;
 	pointColorKey?: string;
-	excludedAnnotations?: Array<{ category: string; value: number; note: string }>;
+	excludedAnnotations?: Array<{ category: string; value: number | null; note: string }>;
 	chartId?: string;
 };
 
@@ -68,18 +76,7 @@ const FORECAST_DECAL = Object.freeze({
 	dashArrayY: [1, 0],
 	rotation: 0.785398,
 });
-const ALLOWED_ENCODINGS = new Set([
-	"x",
-	"y",
-	"value",
-	"series",
-	"color",
-	"size",
-	"name",
-	"source",
-	"target",
-	"forecast",
-]);
+export type RenderLocale = "en" | "ru";
 
 export function escapeHtml(value: unknown): string {
 	return String(value ?? "")
@@ -143,71 +140,52 @@ export function numeric(value: unknown, context: string): number {
 	return result;
 }
 
+const FORECAST_NAME = /forecast|estimate|projection|прогноз/i;
+
 function isForecastField(field: DatasetField | undefined): boolean {
-	return Boolean(
-		field &&
-			(field.type === "boolean" ||
-				/forecast|estimate|projection|planned|actual/i.test(field.key) ||
-				/forecast|estimate|projection|прогноз/i.test(field.label ?? "")),
-	);
+	return Boolean(field && (field.type === "boolean" || FORECAST_NAME.test(`${field.key} ${field.label ?? ""}`)));
 }
 
 export function inferForecastKey(dataset: ChartDataset, block: ChartBlock): string | undefined {
 	const enc = block.encoding ?? {};
 	const explicit = block.forecast?.field ?? enc.forecast;
 	if (explicit) return explicit;
-	const fields = (dataset?.fields ?? []).filter((field) => isForecastField(field));
+	const fields = (dataset?.fields ?? []).filter((field) => FORECAST_NAME.test(`${field.key} ${field.label ?? ""}`));
 	return fields.length === 1 ? fields[0].key : undefined;
 }
 
-export function validateChartContract(
-	block: ChartBlock,
-	dataset: ChartDataset,
-): { fields: Map<string, DatasetField>; forecastKey: string | undefined; seriesKey: string | undefined } {
+function validateChartStructure(block: ChartBlock): void {
 	if (block?.type !== "chart") throw new Error("Chart block is required");
 	if (!CHART_VARIANTS.includes(block.variant)) throw new Error(`Unsupported chart variant ${String(block.variant)}`);
-	if (!dataset || !Array.isArray(dataset.fields) || !Array.isArray(dataset.rows) || dataset.rows.length === 0)
-		throw new Error(`Chart ${block.id ?? "(unnamed)"} has no usable dataset`);
-	const fields = fieldMap(dataset);
-	const enc = block.encoding;
-	if (!enc || typeof enc !== "object" || Array.isArray(enc))
-		throw new Error(`Chart ${block.id ?? "(unnamed)"} encoding must be an object`);
+	const enc = block.encoding ?? {};
 	for (const key of Object.keys(enc))
-		if (!ALLOWED_ENCODINGS.has(key))
+		if (!allowedChartEncodings.has(key))
 			throw new Error(`Chart ${block.id ?? "(unnamed)"} declares unsupported encoding channel ${key}`);
-	for (const key of Object.keys(enc))
-		if (enc[key] !== undefined && (typeof enc[key] !== "string" || !fields.has(enc[key])))
-			throw new Error(`Chart ${block.id ?? "(unnamed)"} encoding.${key} references unknown field ${String(enc[key])}`);
-	const required = {
-		line: ["x", "y"],
-		area: ["x", "y"],
-		bar: ["x", "y"],
-		"stacked-bar": ["x", "y"],
-		"grouped-bar": ["x", "y"],
-		"100%-stacked-bar": ["x", "y"],
-		scatter: ["x", "y"],
-		bubble: ["x", "y"],
-		heatmap: ["x", "y", "value"],
-		treemap: [],
-		sunburst: [],
-		sankey: ["source", "target", "value"],
-	}[block.variant];
-	for (const key of required)
+	for (const key of requiredChartEncodings[block.variant])
 		if (typeof enc[key] !== "string") throw new Error(`Chart ${block.id ?? "(unnamed)"} requires encoding.${key}`);
-	if (["treemap", "sunburst"].includes(block.variant)) {
+	if (chartFamily[block.variant] === "hierarchy") {
 		if (typeof (enc.value ?? enc.y) !== "string")
 			throw new Error(`Chart ${block.id ?? "(unnamed)"} requires encoding.value or encoding.y`);
 		if (typeof (enc.name ?? enc.x) !== "string")
 			throw new Error(`Chart ${block.id ?? "(unnamed)"} requires encoding.name or encoding.x`);
 	}
+}
+
+export function validateChartDatasetBindings(
+	block: ChartBlock,
+	dataset: ChartDataset,
+): { fields: Map<string, DatasetField>; forecastKey: string | undefined; seriesKey: string | undefined } {
+	if (!dataset || !Array.isArray(dataset.fields) || !Array.isArray(dataset.rows) || dataset.rows.length === 0)
+		throw new Error(`Chart ${block.id ?? "(unnamed)"} has no usable dataset`);
+	const fields = fieldMap(dataset);
+	const enc = block.encoding ?? {};
+	for (const key of Object.keys(enc))
+		if (enc[key] !== undefined && (typeof enc[key] !== "string" || !fields.has(enc[key])))
+			throw new Error(`Chart ${block.id ?? "(unnamed)"} encoding.${key} references unknown field ${String(enc[key])}`);
+	const family = chartFamily[block.variant];
 	const numericKeys = new Set(["value", "size"]);
-	if (
-		["line", "area", "bar", "stacked-bar", "grouped-bar", "100%-stacked-bar", "scatter", "bubble"].includes(
-			block.variant,
-		)
-	)
-		numericKeys.add("y");
-	if (["scatter", "bubble"].includes(block.variant)) numericKeys.add("x");
+	if (family === "cartesian" || family === "scatter") numericKeys.add("y");
+	if (family === "scatter") numericKeys.add("x");
 	for (const key of numericKeys) {
 		const field = enc[key];
 		if (field && fields.get(field)?.type !== "number")
@@ -215,17 +193,16 @@ export function validateChartContract(
 	}
 	if (enc.forecast && !isForecastField(fields.get(enc.forecast)))
 		throw new Error(`Chart ${block.id ?? "(unnamed)"} encoding.forecast must reference a forecast/boolean field`);
-	const interaction = block.interaction ?? {};
-	for (const key of ["tooltip", "zoom", "legendFilter"] as const)
-		if (typeof interaction[key] !== "boolean")
-			throw new Error(`Chart ${block.id ?? "(unnamed)"} interaction.${key} must be boolean`);
 	const seriesKey = enc.series ?? enc.color;
-	const seriesCount = seriesKey ? uniqueValues(dataset.rows, seriesKey).length : 1;
-	if (interaction.legendFilter && seriesCount < 2)
-		throw new Error(`Chart ${block.id ?? "(unnamed)"} requests legendFilter but has fewer than two series`);
-	if (block.annotations !== undefined && !Array.isArray(block.annotations))
-		throw new Error(`Chart ${block.id ?? "(unnamed)"} annotations must be an array`);
 	return { fields, forecastKey: inferForecastKey(dataset, block), seriesKey };
+}
+
+export function validateChartContract(
+	block: ChartBlock,
+	dataset: ChartDataset,
+): { fields: Map<string, DatasetField>; forecastKey: string | undefined; seriesKey: string | undefined } {
+	validateChartStructure(block);
+	return validateChartDatasetBindings(block, dataset);
 }
 
 function fieldTitle(field: DatasetField | undefined): string {
@@ -233,7 +210,9 @@ function fieldTitle(field: DatasetField | undefined): string {
 	return field.unit ? `${field.label} (${field.unit})` : field.label;
 }
 
-function chartValue(
+const PERCENT_HINT = /%|percent|дол[яиею]/i;
+
+export function formatModelValue(
 	value: unknown,
 	field: DatasetField | { unit?: string; label?: string } | undefined,
 	normalized = false,
@@ -244,12 +223,13 @@ function chartValue(
 	if (
 		normalized ||
 		field?.unit === "%" ||
-		/%|percent|дол/i.test(field?.unit ?? "") ||
-		/%|percent|дол/i.test(field?.label ?? "")
+		PERCENT_HINT.test(field?.unit ?? "") ||
+		PERCENT_HINT.test(field?.label ?? "")
 	)
 		return `${rounded}%`;
 	return field?.unit ? `${rounded} ${field.unit}` : rounded;
 }
+const chartValue = formatModelValue;
 
 function rowIsForecast(
 	row: ChartRow | undefined,
@@ -305,6 +285,7 @@ function baseOption({
 	gridTop = 18,
 	gridBottom = 68,
 	ariaDescription,
+	tooltipTrigger = "axis",
 }: {
 	title?: string;
 	interaction: ChartBlock["interaction"];
@@ -312,6 +293,7 @@ function baseOption({
 	gridTop?: number;
 	gridBottom?: number;
 	ariaDescription: string;
+	tooltipTrigger?: "axis" | "item";
 }): ChartOption {
 	return {
 		animation: false,
@@ -335,7 +317,7 @@ function baseOption({
 		tooltip: interaction.tooltip
 			? {
 					show: true,
-					trigger: "axis",
+					trigger: tooltipTrigger,
 					confine: true,
 					backgroundColor: "#17323a",
 					borderWidth: 0,
@@ -353,6 +335,7 @@ function transformCartesian(
 	block: ChartBlock,
 	dataset: ChartDataset,
 	contract: ReturnType<typeof validateChartContract>,
+	locale: RenderLocale,
 ): Omit<ChartModel, "block"> {
 	const enc = block.encoding;
 	const xKey = enc.x;
@@ -429,6 +412,7 @@ function transformCartesian(
 				color: "#17323a",
 				fontSize: 12,
 			},
+			labelLayout: { hideOverlap: true },
 		};
 		if (block.variant === "area") output.areaStyle = { opacity: seriesIndex === 0 ? 0.2 : 0.12 };
 		if (block.variant === "stacked-bar" || normalized) output.stack = "total";
@@ -456,12 +440,20 @@ function transformCartesian(
 		data: categories,
 		name: xField?.label ?? xKey,
 		nameLocation: "middle",
-		nameGap: 40,
-		axisLabel: { color: "#42565b", fontSize: 12, hideOverlap: true, interval: categories.length > 12 ? 1 : 0 },
+		nameGap: categories.length > 8 ? 52 : 40,
+		axisLabel: {
+			color: "#42565b",
+			fontSize: 12,
+			hideOverlap: true,
+			interval: categories.length > 12 ? 1 : 0,
+			rotate: categories.length > 8 ? 30 : 0,
+			width: 110,
+			overflow: "truncate",
+		},
 	};
 	options.yAxis = {
 		type: "value",
-		name: normalized ? "Доля (%)" : fieldTitle(yField),
+		name: normalized ? (locale === "ru" ? "Доля (%)" : "Share (%)") : fieldTitle(yField),
 		nameLocation: "middle",
 		nameGap: 52,
 		min: normalized ? 0 : undefined,
@@ -500,11 +492,15 @@ function transformCartesian(
 		}),
 	}));
 	const noteKey = dataset.fields.find((field) => /annotation|note|comment/i.test(field.key))?.key;
-	const excludedAnnotations = annotationOnlyRows.map((row) => ({
-		category: canonical(row[xKey]),
-		value: numeric(row[yKey], `Chart ${block.id ?? "(unnamed)"} ${yKey}`),
-		note: noteKey ? canonical(row[noteKey]) : "Excluded from the plotted series because it is not comparable.",
-	}));
+	const excludedAnnotations = annotationOnlyRows.map((row) => {
+		const rawValue = row[yKey];
+		const parsed = rawValue === null || rawValue === undefined || rawValue === "" ? Number.NaN : Number(rawValue);
+		return {
+			category: canonical(row[xKey]),
+			value: Number.isFinite(parsed) ? parsed : null,
+			note: noteKey ? canonical(row[noteKey]) : "Excluded from the plotted series because it is not comparable.",
+		};
+	});
 	return {
 		options,
 		categories,
@@ -542,6 +538,7 @@ function transformScatter(
 	const series = seriesValues.map((seriesName) => ({
 		name: seriesName,
 		type: "scatter",
+		labelLayout: { hideOverlap: true },
 		data: dataset.rows
 			.filter((row) => !seriesKey || canonical(row[seriesKey]) === seriesName)
 			.map((row) => {
@@ -553,7 +550,13 @@ function transformScatter(
 					value: [x, y],
 					symbolSize: size,
 					itemStyle: {},
-					label: { show: true, formatter: enc.name ? canonical(row[enc.name]) : "{b}", position: "top" },
+					label: {
+						show: true,
+						formatter: enc.name ? canonical(row[enc.name]) : "{b}",
+						position: "top",
+						width: 120,
+						overflow: "truncate",
+					},
 				};
 			}),
 	}));
@@ -622,12 +625,16 @@ function transformHeatmap(
 	const valueField = contract.fields.get(enc.value);
 	const xs = uniqueValues(dataset.rows, enc.x);
 	const ys = uniqueValues(dataset.rows, enc.y);
-	const byCell = new Map();
+	const cellTotals = new Map<string, { sum: number; count: number }>();
 	for (const row of dataset.rows) {
 		const key = `${canonical(row[enc.x])}\u0000${canonical(row[enc.y])}`;
-		if (byCell.has(key)) throw new Error(`Chart ${block.id ?? "(unnamed)"} has duplicate heatmap cell ${key}`);
-		byCell.set(key, numeric(row[enc.value], enc.value));
+		const current = cellTotals.get(key) ?? { sum: 0, count: 0 };
+		current.sum += numeric(row[enc.value], enc.value);
+		current.count += 1;
+		cellTotals.set(key, current);
 	}
+	const byCell = new Map([...cellTotals].map(([key, cell]) => [key, cell.sum / cell.count]));
+	const collapsedRows = dataset.rows.length - byCell.size;
 	const values = [...byCell.values()];
 	const min = Math.min(...values);
 	const max = Math.max(...values);
@@ -635,25 +642,39 @@ function transformHeatmap(
 		interaction: block.interaction,
 		legend: false,
 		gridBottom: 56,
-		ariaDescription: `${block.title ?? "Heatmap"}. ${xs.length} by ${ys.length} matrix.`,
+		ariaDescription: `${block.title ?? "Heatmap"}. ${xs.length} by ${ys.length} matrix.${collapsedRows > 0 ? ` ${collapsedRows} duplicate row(s) were averaged into their encoded cells.` : ""}`,
 	});
 	options.xAxis = {
 		type: "category",
 		data: xs,
 		name: xField?.label ?? enc.x,
 		nameLocation: "middle",
-		nameGap: 36,
-		axisLabel: { color: "#42565b" },
+		nameGap: xs.length > 6 ? 52 : 36,
+		axisLabel: {
+			color: "#42565b",
+			hideOverlap: true,
+			rotate: xs.length > 6 ? 30 : 0,
+			width: 110,
+			overflow: "truncate",
+		},
 	};
-	options.yAxis = { type: "category", data: ys, name: yField?.label ?? enc.y, axisLabel: { color: "#42565b" } };
+	options.yAxis = {
+		type: "category",
+		data: ys,
+		name: yField?.label ?? enc.y,
+		axisLabel: { color: "#42565b", width: 130, overflow: "truncate" },
+	};
 	options.visualMap = { min, max, show: false, calculable: false, inRange: { color: ["#dfeceb", "#2f6673"] } };
 	options.series = [
 		{
 			type: "heatmap",
 			data: ys.flatMap((y, yi) =>
-				xs.map((x, xi) => ({ value: [xi, yi, byCell.get(`${x}\u0000${y}`) ?? 0], itemStyle: {} })),
+				xs.flatMap((x, xi) => {
+					const cell = byCell.get(`${x}\u0000${y}`);
+					return cell === undefined ? [] : [{ value: [xi, yi, cell] as number[], itemStyle: {} }];
+				}),
 			),
-			label: { show: true, color: "#17323a" },
+			label: { show: true, color: "#17323a", fontSize: 11 },
 			emphasis: { itemStyle: { shadowBlur: 8, shadowColor: "rgba(23,50,58,.3)" } },
 		},
 	];
@@ -663,7 +684,10 @@ function transformHeatmap(
 		seriesValues: [valueField?.label ?? enc.value],
 		tableRows: ys.map((y) => ({
 			category: y,
-			values: xs.map((x) => ({ series: x, value: byCell.get(`${x}\u0000${y}`) ?? 0 })),
+			values: xs.map((x) => {
+				const cell = byCell.get(`${x}\u0000${y}`);
+				return { series: x, value: cell ?? null, missing: cell === undefined };
+			}),
 		})),
 		xField,
 		yField,
@@ -694,22 +718,14 @@ function transformHierarchy(
 		gridTop: 8,
 		gridBottom: 8,
 		ariaDescription: `${block.title ?? block.variant}. ${data.map((entry) => `${entry.name}: ${chartValue(entry.value, valueField)}`).join(", ")}`,
+		tooltipTrigger: "item",
 	});
-	options.tooltip = block.interaction.tooltip
-		? {
-				show: true,
-				trigger: "item",
-				confine: true,
-				backgroundColor: "#17323a",
-				borderWidth: 0,
-				textStyle: { color: "#fff" },
-			}
-		: { show: false };
 	options.series = [
 		{
 			type: block.variant,
 			data: data.map((entry) => ({ value: entry.value, name: entry.name, itemStyle: {} })),
-			label: { show: true, color: "#17323a", fontSize: 12 },
+			label: { show: true, color: "#17323a", fontSize: 12, width: 110, overflow: "truncate" },
+			labelLayout: { hideOverlap: true },
 			...(block.variant === "sunburst" ? { radius: ["15%", "86%"] } : {}),
 		},
 	];
@@ -751,27 +767,50 @@ function transformSankey(
 		const key = `${source}\u0000${target}`;
 		linkTotals.set(key, (linkTotals.get(key) ?? 0) + value);
 	}
-	const links = [...linkTotals.entries()].map(([key, value]) => {
+	const aggregatedLinks = [...linkTotals.entries()].map(([key, value]) => {
 		const [source, target] = key.split("\u0000");
 		return { source, target, value };
+	});
+	const adjacency = new Map<string, Set<string>>();
+	const hasPath = (start: string, goal: string): boolean => {
+		const pending = [start];
+		const seen = new Set<string>();
+		while (pending.length > 0) {
+			const node = pending.pop();
+			if (node === undefined || seen.has(node)) continue;
+			if (node === goal) return true;
+			seen.add(node);
+			for (const next of adjacency.get(node) ?? []) pending.push(next);
+		}
+		return false;
+	};
+	let cycleCopies = 0;
+	const links = aggregatedLinks.map((link) => {
+		let target = link.target;
+		if (link.source === link.target || hasPath(link.target, link.source)) {
+			cycleCopies += 1;
+			const base = `${link.target} ↩`;
+			target = `${base} ${cycleCopies}`;
+			while (nodeSet.has(target)) {
+				cycleCopies += 1;
+				target = `${base} ${cycleCopies}`;
+			}
+			nodeSet.add(target);
+			nodeNames.push(target);
+		}
+		const targets = adjacency.get(link.source) ?? new Set<string>();
+		targets.add(target);
+		adjacency.set(link.source, targets);
+		return { ...link, target };
 	});
 	const options = baseOption({
 		interaction: block.interaction,
 		legend: false,
 		gridTop: 8,
 		gridBottom: 8,
-		ariaDescription: `${block.title ?? "Flow chart"}. ${links.length} flows between ${nodeNames.length} nodes.`,
+		ariaDescription: `${block.title ?? "Flow chart"}. ${links.length} flows between ${nodeNames.length} nodes.${cycleCopies > 0 ? ` ${cycleCopies} feedback flow(s) terminate in duplicated return nodes to preserve an acyclic Sankey layout.` : ""}`,
+		tooltipTrigger: "item",
 	});
-	options.tooltip = block.interaction.tooltip
-		? {
-				show: true,
-				trigger: "item",
-				confine: true,
-				backgroundColor: "#17323a",
-				borderWidth: 0,
-				textStyle: { color: "#fff" },
-			}
-		: { show: false };
 	options.series = [
 		{
 			type: "sankey",
@@ -779,9 +818,12 @@ function transformSankey(
 			links,
 			nodeAlign: "justify",
 			draggable: false,
+			left: 8,
+			right: 130,
 			emphasis: { focus: "adjacency" },
 			lineStyle: { color: "#7e9b9f", curveness: 0.45 },
-			label: { color: "#17323a", fontSize: 12 },
+			label: { color: "#17323a", fontSize: 12, width: 120, overflow: "truncate" },
+			labelLayout: { hideOverlap: true },
 		},
 	];
 	return {
@@ -799,33 +841,22 @@ function transformSankey(
 	};
 }
 
-export function buildChartModel(block: ChartBlock, dataset: ChartDataset): ChartModel {
+export function buildChartModel(block: ChartBlock, dataset: ChartDataset, locale: RenderLocale = "en"): ChartModel {
 	const contract = validateChartContract(block, dataset);
+	const family = chartFamily[block.variant];
 	let model: Omit<ChartModel, "block" | "id" | "title" | "purpose" | "chartId">;
-	if (["line", "area", "bar", "stacked-bar", "grouped-bar", "100%-stacked-bar"].includes(block.variant))
-		model = transformCartesian(block, dataset, contract);
-	else if (["scatter", "bubble"].includes(block.variant)) model = transformScatter(block, dataset, contract);
-	else if (block.variant === "heatmap") model = transformHeatmap(block, dataset, contract);
-	else if (["treemap", "sunburst"].includes(block.variant)) model = transformHierarchy(block, dataset, contract);
-	else if (block.variant === "sankey") model = transformSankey(block, dataset, contract);
-	else throw new Error(`Unsupported chart variant ${block.variant}`);
-	if (block.interaction?.zoom && !["cartesian", "scatter", "heatmap"].includes(model.kind))
-		throw new Error(`Chart ${block.id ?? "(unnamed)"} requests zoom for unsupported ${model.kind} chart`);
-	if (block.interaction?.zoom && !model.options.dataZoom)
+	if (family === "cartesian") model = transformCartesian(block, dataset, contract, locale);
+	else if (family === "scatter") model = transformScatter(block, dataset, contract);
+	else if (family === "heatmap") model = transformHeatmap(block, dataset, contract);
+	else if (family === "hierarchy") model = transformHierarchy(block, dataset, contract);
+	else model = transformSankey(block, dataset, contract);
+	if (block.interaction?.zoom && ["cartesian", "scatter", "heatmap"].includes(model.kind) && !model.options.dataZoom)
 		model.options.dataZoom = [{ type: "inside" }, { type: "slider", bottom: 12 }];
 	return { ...model, id: block.id, title: block.title, purpose: block.purpose, block };
 }
 
-export function formatModelValue(
-	value: unknown,
-	field: DatasetField | { unit?: string; label?: string } | undefined,
-	normalized = false,
-): string {
-	return chartValue(value, field, normalized);
-}
-
 export function imageMime(path: string, hint: string | undefined): string {
-	if (hint) return hint;
+	if (hint && /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(hint)) return hint;
 	return (
 		{
 			".png": "image/png",

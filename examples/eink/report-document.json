@@ -6173,277 +6173,461 @@
         "description": "SkyQuest: размер рынка за один и тот же год (2024) указан как $6.68B, $4.4B и $2.58B на разных страницах одного домена — внутренняя несогласованность в 2.6×.",
         "takeIds": [
           "market-definition-audit"
-        ]
+        ],
+        "id": "c_example_0",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "GM Insights: заявленная доля E Ink (65.7% рынка в 2025) арифметически несовместима с оценкой рынка ($3.7B) при известной выручке E Ink (~$1.13B). 65.7% × $3.7B = $2.43B, что в 2.2 раза выше реальной выручки E Ink.",
         "takeIds": [
           "market-definition-audit"
-        ]
+        ],
+        "id": "c_example_1",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Mordor Intelligence: заявленная совокупная доля E Ink + Sony + BOE >55% при рынке $2.99B. Если E Ink ~$1.13B, то это уже ~38% рынка, а с учётом Sony и BOE совокупная доля должна быть значительно выше 55% — либо охват рынка Mordor не включает всех значимых игроков.",
         "takeIds": [
           "market-definition-audit"
-        ]
+        ],
+        "id": "c_example_2",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "PortersFiveForce (ESL ~35-40% в 2024) vs MatrixBCG (IoT/retail 'почти 60%' в H1 2025). Расхождение в 20 п.п. за 6–12 месяцев маловероятно для зрелого бизнеса; скорее, различие в классификации сегментов.",
         "takeIds": [
           "market-definition-audit"
-        ]
+        ],
+        "id": "c_example_3",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Диапазон CAGR: от 8.27% (360iResearch) до 31.83% (VMR) — разница в 3.8×. При базовом размере $3–4B это даёт прогноз на 2030–2035 от $5.9B до $43.5B. Расхождение указывает на фундаментально разные определения измеряемого рынка, а не на погрешность прогнозирования.",
         "takeIds": [
           "market-definition-audit"
-        ]
+        ],
+        "id": "c_example_4",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "АРИФМЕТИЧЕСКАЯ НЕСТЫКОВКА В ПЕРВИЧНОМ ИСТОЧНИКЕ (Taipei Times / E Ink chairman): заявлен рост ESL-модулей «на 25 процентов» с «около 370 млн» (2024) до 500 млн (2025). Однако 500/370 ≈ 1,351 (+35,1%). Возможные объяснения: (а) «около 370 млн» — значительное округление, и база 2024 года ближе к 400 млн (400 × 1,25 = 500); (б) 500 млн — целевой прогноз, а 25% относится к другому базовому периоду; (в) неточность журналиста Taipei Times при передаче устного заявления. Разрешение противоречия требует стенограммы earnings call E Ink от ноября 2025.",
         "takeIds": [
           "category-unit-trends"
-        ]
+        ],
+        "id": "c_example_5",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Рынок e-reader в деньгах: $730M (IntelMarketResearch, 2024, устройства) vs. $9,94B (SkyQuest, 2024, включая контент/экосистему) — разница в 13,6× из-за разных границ рынка. Обе оценки неаудированы.",
         "takeIds": [
           "category-unit-trends"
-        ]
+        ],
+        "id": "c_example_6",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Рынок ESL в деньгах: $1,8B (GM Insights, 2023) vs. $1,56B (Maximize Market Research, 2023) vs. $1,29B (Arizton, 2022) — расхождения отражают разные методологии. Направление тренда (+рост) консистентно.",
         "takeIds": [
           "category-unit-trends"
-        ]
+        ],
+        "id": "c_example_7",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "E-reader штучный тренд: сообщения о «снижении» (Statista, Just Publishing Advice) vs. рекордный Q4 2024 Amazon Kindle. Оба могут быть верны: рынок dedicated e-reader структурно стагнирует, но цветной апгрейд вызвал циклический всплеск.",
         "takeIds": [
           "category-unit-trends"
-        ]
+        ],
+        "id": "c_example_8",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Доля E Ink на рынке e-paper: '>90% мировых мощностей electrophoretic-модулей' (проспект Boox) vs. 'E Ink, Sony, BOE совместно >55% выручки 2024' (Mordor Intelligence). Противоречие объясняется разными определениями: electrophoretic-модули vs. весь рынок e-paper-дисплеев (включая reflective LCD и альтернативные технологии).",
         "takeIds": [
           "category-unit-trends"
-        ]
+        ],
+        "id": "c_example_9",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Рыночные отчёты утверждают, что >55% Tier-1 ритейлеров внедрили ESL к 2024 (MarketGrowthReports), однако ABI Research в тот же период характеризует большинство как PoC — «внедрение» в первом случае, вероятно, включает пилоты, а не полномасштабное развёртывание.",
         "takeIds": [
           "esl-trajectory-and-economics"
-        ]
+        ],
+        "id": "c_example_10",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Оценки региональных долей ESL-рынка расходятся: Европа 31% (OpenPR) vs. 44,47% (GlobeNewswire); Северная Америка ~35% (Verified Market Reports) vs. «быстрорастущий» регион. Различия объясняются разными определениями рынка.",
         "takeIds": [
           "esl-trajectory-and-economics"
-        ]
+        ],
+        "id": "c_example_11",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Прогнозы размера рынка к 2033 разнятся почти вдвое: $4,18 млрд к 2029 (MarketsandMarkets) vs. $7,32 млрд к 2033 (Grand View Research) — высокая неопределённость долгосрочных прогнозов.",
         "takeIds": [
           "esl-trajectory-and-economics"
-        ]
+        ],
+        "id": "c_example_12",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Vendor ROI decks: payback 18–24 месяца; Retail Digitals: реальный payback для US grocery «ближе к 24–36 месяцам». Разрыв частично объясняется глубиной интеграции: вендоры моделируют Layers 1–5, многие ритейлеры внедряют только трудозамещение (Layer 1).",
         "takeIds": [
           "esl-trajectory-and-economics"
-        ]
+        ],
+        "id": "c_example_13",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Цифры кейса Migros из CNETAG (84 магазина, 14 мес., CHF 4,44 млн) расходятся с подтверждёнными данными о Migros: пилот ZBD на 6 магазинах (2011), «более 50 магазинов» с цифровыми ценниками к 2025 (официальный сайт). Источник цифр CNETAG не установлен.",
         "takeIds": [
           "esl-trajectory-and-economics"
-        ]
+        ],
+        "id": "c_example_14",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "E Ink заявляет об отсутствии признаков замедления спроса после Walmart (DigiTimes, ноябрь 2025), но одновременно признаёт сезонное ослабление Q1 и завершение цикла восстановления запасов.",
         "takeIds": [
           "esl-trajectory-and-economics"
-        ]
+        ],
+        "id": "c_example_15",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Connect FY2023: ~700k (CEO letter S18) vs. 338k (S3) — разные метрики.",
         "takeIds": [
           "consumer-device-trends"
-        ]
+        ],
+        "id": "c_example_16",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Чистая прибыль FY2024: $27,3M (S1) vs. $24,7M (S3) — Invest AS vs. группа.",
         "takeIds": [
           "consumer-device-trends"
-        ]
+        ],
+        "id": "c_example_17",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Доля ↓ (S10) vs. продажи ↑ (S8) — опрос vs. транзакции.",
         "takeIds": [
           "consumer-device-trends"
-        ]
+        ],
+        "id": "c_example_18",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Данные Netronix показывают доминирование цвета в отгрузках (64–71%), в то время как розничные оценки Kindle Colorsoft на Amazon US демонстрируют обратную картину: цветная модель продаётся в разы хуже монохромных. Возможные объяснения: (a) Netronix не производит Kindle; (b) данные Netronix — sell-in, а не sell-through; (c) рынок вне США (Китай, Европа) может иметь иную динамику; (d) рост отгрузок цвета у Netronix может отражать разовые крупные заказы (Kobo, Tolino) на старте цикла обновления.",
         "takeIds": [
           "color-eink-adoption"
-        ]
+        ],
+        "id": "c_example_19",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Различные аналитические агентства дают радикально различающиеся оценки рынка e-reader'ов: от $162 млн до $10 млрд в 2024 году, что указывает на принципиально разные определения границ рынка (устройства vs экосистема, e-reader'ы vs e-paper-дисплеи в целом).",
         "takeIds": [
           "color-eink-adoption"
-        ]
+        ],
+        "id": "c_example_20",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Siegenthaler 2012 (N=10) не обнаружил различий между E-ink и LCD; Benedetto 2013 (N=12) обнаружил значимые различия по blinks/sec, но не по CFF. Противоречие может объясняться разными устройствами (Sony PRS-600 vs Kindle Paperwhite; Kolin LCD vs Kindle Fire HD), разной длительностью (70 vs ~73 мин) и отсутствием фронтлайта в устройствах 2012 года.",
         "takeIds": [
           "demand-health"
-        ]
+        ],
+        "id": "c_example_21",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Исследование Wang 2023 (E Ink/Harvard) заявляет о превосходстве E-ink над LCD на клеточном уровне in vitro; позиция AAO — «нет доказательств повреждения глаз светом экранов». Первое — суррогатный исход в модели ARPE-19; второе — клиническая позиция об отсутствии доказательств вреда на уровне органа зрения человека. Эти утверждения относятся к разным уровням доказательности.",
         "takeIds": [
           "demand-health"
-        ]
+        ],
+        "id": "c_example_22",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Субъективные шкалы (VFS) в Benedetto 2013 показали эффект; объективный CFF — нет. В Yuan 2021: blink rate значимо рос в OLED, но не в eINK, однако другие объективные показатели (высота слёзного мениска, гиперемия) показали смешанные результаты. Это ограничивает возможность утверждать единый «физиологический» эффект.",
         "takeIds": [
           "demand-health"
-        ]
+        ],
+        "id": "c_example_23",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "DataIntelo (2025) утверждает, что 48% покупателей называют зрительную усталость причиной покупки; независимых академических подтверждений этому нет. Это не противоречие, а неподтверждённое утверждение.",
         "takeIds": [
           "demand-health"
-        ]
+        ],
+        "id": "c_example_24",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Рыночные отчёты (DataIntelo, ShelfTrend) указывают на «снижение напряжения глаз» (48%) и сегмент «Distraction-Free Professional» (35%) как значимые категории, но не предоставляют первичных данных для проверки. Академические исследования (TAM, n=234) не находят значимости «цены» и «лёгкости использования» — противоречие между драйверами в разных методологических традициях, которое невозможно разрешить без общего опроса.",
         "takeIds": [
           "demand-digital-minimalism"
-        ]
+        ],
+        "id": "c_example_25",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Нейрофизиологическое исследование iMotions/reMarkable утверждает снижение когнитивной нагрузки на 30% и стресса на 35%, но финансировано производителем (n=60); независимых репликаций для e-ink-планшетов не найдено. При этом маркетинг активно использует эти выводы как доказательство ценности устройств.",
         "takeIds": [
           "demand-digital-minimalism"
-        ]
+        ],
+        "id": "c_example_26",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Медийный и маркетинговый дискурс последовательно связывает e-ink с digital detox, но отсутствие опросов покупателей означает, что сила и направление реальной причинной связи остаются неподтверждёнными: возможно, покупатели выбирают e-ink по другим причинам (комфорт глаз, батарея), а нарратив detox используют post hoc.",
         "takeIds": [
           "demand-digital-minimalism"
-        ]
+        ],
+        "id": "c_example_27",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Срок службы e-ink-панели: оценки варьируются от 1 млн до 90 млн обновлений в зависимости от источника (производитель панели, поколение технологии, методика измерения). Единый отраслевой стандарт отсутствует.",
         "takeIds": [
           "technology-constraints-and-alternatives"
-        ]
+        ],
+        "id": "c_example_28",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Gallery 3: официальные цифры E Ink (350 мс ч/б, 500 мс быстрый цвет) противоречат пользовательскому опыту с reMarkable Paper Pro, где навигация ощущается медленнее, чем на Kaleido 3. Возможно, проблема в программной оптимизации конкретного устройства, а не в технологии.",
         "takeIds": [
           "technology-constraints-and-alternatives"
-        ]
+        ],
+        "id": "c_example_29",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "RLCD: Daylight позиционирует DC-1 как 'Live Paper' без подсветки, но обозреватели (The Verge, Max Grossmann) отмечают, что без внешнего освещения экран «очень тусклый и низкоконтрастный». Производитель и пользователи расходятся в оценке удобства использования в помещении.",
         "takeIds": [
           "technology-constraints-and-alternatives"
-        ]
+        ],
+        "id": "c_example_30",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Углеродный след жизненного цикла e-reader: 168 кг CO2-экв. (CleanTech 2009, Kindle 1G, США) vs. 14 кг CO2-экв. (CIRAIG 2020, Kindle-подобное устройство, Квебек) vs. 53 кг CO2-экв. (reMarkable 2, 2023). Причина: разные устройства, границы системы (CleanTech — полный цикл, CIRAIG — вероятно, уже/уже границы), энергомиксы и методологии. Невозможно определить, какая цифра точнее для современного Kindle.",
         "takeIds": [
           "environmental-lifecycle-constraints"
-        ]
+        ],
+        "id": "c_example_31",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Точка безубыточности: 4,7 книг/год (Amasawa 2018, e-reader, 3 года, 16-ч батарея) vs. 22,5 книги за срок службы (CleanTech 2009, Kindle 1G, 4 года) vs. 33 книги по 360 стр. (Moberg 2011, Швеция). Расхождения объясняются: (1) функциональной единицей (художественная книга vs. учебник vs. 360-стр. переплёт), (2) углеродным следом одной бумажной книги (7,46 кг CleanTech vs. 1,2 кг Швеция — разница в 6 раз), (3) сроком службы (3–4 года), (4) энергомиксом.",
         "takeIds": [
           "environmental-lifecycle-constraints"
-        ]
+        ],
+        "id": "c_example_32",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Rebound effect: CIRAIG (2020) — владельцы e-reader читают в 5 раз больше, общий след вдвое выше vs. Amasawa (2018) — объём чтения не изменился. Противоречие между корреляционным опросом и контролируемым экспериментом; оба результата могут быть верны в разных популяциях.",
         "takeIds": [
           "environmental-lifecycle-constraints"
-        ]
+        ],
+        "id": "c_example_33",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Ремонтопригодность: исторически Kindle 7G (2015) = 8/10 vs. Kindle PW 11G (2021) = 2/10. Kobo (2024) = 6/10 с доступными запчастями. Тренд разнонаправлен: Kobo движется к большей ремонтопригодности, Amazon — к меньшей.",
         "takeIds": [
           "environmental-lifecycle-constraints"
-        ]
+        ],
+        "id": "c_example_34",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "Заявление Amazon об «экономии 2,3 млн тонн CO2 за 2 года благодаря Kindle» не подтверждено независимой верификацией и противоречит академическим LCA, показывающим более скромные и условные преимущества.",
         "takeIds": [
           "environmental-lifecycle-constraints"
-        ]
+        ],
+        "id": "c_example_35",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "РАЗНЫЕ ГРАНИЦЫ РЫНКА (РАЗМЕР): Оценки объёма рынка e-ink/e-paper для 2024 года варьируются от $2.65 млрд (Straits Research) до $5.71 млрд (Verified Market Research) — различие в 2.2×. DataIntelo: $1.73 млрд (2023). MarketReportsWorld: $11.25 млрд (2025). Расхождения объясняются разными определениями границ (дисплейные модули vs системы vs конечные устройства).",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_36",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "РАЗНЫЕ ГРАНИЦЫ РЫНКА (ДОЛЯ E INK): Mordor Intelligence: E Ink+Sony+BOE >55% доходов рынка e-paper-дисплеев (2024). DataIntelo: E Ink >90% рынка электрофоретических дисплейных модулей. VMR: E Ink >65% цепочки поставок. GM Insights: топ-5 = 89.3% рынка (2025). Собственная выручка E Ink (~$1.07B) составляет 19–40% от оценок общего рынка ($2.65–5.71B). Классифицировано как РАЗНЫЕ ГРАНИЦЫ РЫНКА: «90%+» относится к узкому рынку модулей, а не к широкому рынку e-paper-устройств.",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_37",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "ВНУТРЕННЕЕ ПРОТИВОРЕЧИЕ В ОДНОМ ИСТОЧНИКЕ: 360 Research Reports в одном отчёте указывает «топ-3 контролируют 62% рынка электрофоретических дисплеев», а в другом — «E Ink поставляет >90% мировых электрофоретических чернил». Классифицировано как НЕРАЗРЕШЁННОЕ РАСХОЖДЕНИЕ.",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_38",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "РАЗНЫЕ МЕТРИКИ (CAGR): Прогнозы CAGR варьируются от 4.1% (BusinessResearchInsights, 2026–2035) до 31.83% (Verified Market Research, 2024–2032). Различия в базовом годе, географии и границах рынка не объясняют такой разброс.",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_39",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "РАЗНЫЕ ПЕРИОДЫ И НАПРАВЛЕНИЯ ТРЕНДА: E Ink Holdings: +53% рост в 2022, −9.8% спад в 2023, +18.6% в 2024. Прогнозы аналитиков предполагают равномерный рост, но реальность — волатильность с циклами бума ESL и нормализации. Нарратив «устойчивого роста» не подтверждается.",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_40",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "ПРОТИВОПОЛОЖНЫЕ ВЫВОДЫ О ЗРИТЕЛЬНОЙ УСТАЛОСТИ: Siegenthaler et al. (2012, n=10): нет статистически значимых различий e-ink vs LCD. Benedetto et al. (2013): LCD вызывает значимо большую усталость, чем e-ink. Оба исследования используют LCD 2012–2013 годов; современные LCD имеют принципиально иные характеристики.",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_41",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "E-READER РОСТ VS УПАДОК: Вендорский нарратив противоречит данным Pew о снижении владения с пика 32% (2014) до ~19% (2015–2016). После 2016 Pew прекратил отслеживание. Statista (2023) даёт 21% для когорты 30–49 — другая методология, не общее население.",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_42",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "ВЫРУЧКА VS ОБЪЁМ: reMarkable: рост поставок на 6% при падении выручки на 8% во 2 кв. 2024 — ценовое давление. Противоречит тезису о росте премиум-сегмента без ценовой эрозии.",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_43",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "IFRS VS ADJUSTED: VusionGroup: €955 млн по МСФО vs €1.01 млрд скорректированной. Использование adjusted-цифр в отраслевых обзорах завышает воспринимаемый размер рынка на ~6%.",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_44",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       },
       {
         "description": "НЕРАЗРЕШЁННОЕ РАСХОЖДЕНИЕ (FTSE RUSSELL GREEN REVENUE): E Ink заявляет о «99.98% Green Revenue по модели FTSE Russell». Показатель отражает отраслевую классификацию, а не независимую экологическую оценку жизненного цикла.",
         "takeIds": [
           "evidence-strength-and-chartability"
-        ]
+        ],
+        "id": "c_example_45",
+        "status": "unresolved",
+        "rationale": "",
+        "evidenceIds": []
       }
     ],
     "gaps": [
@@ -6890,7 +7074,8 @@
       "takes": 10,
       "evidence": 142,
       "sources": 272
-    }
+    },
+    "blockers": []
   },
   "visualInputs": [
     {
@@ -6971,7 +7156,7 @@
         "Показатели Walmart (2 300 и 4 600 — локации, а не модули) вынесены в отдельный callout; их нельзя сопоставлять со шкалой млн модулей",
         "Речь идёт об отгрузках модулей (дисплейных компонентов), а не о sell-through конечных ESL-меток или потребительских устройств"
       ],
-      "fallback": "table"
+      "fallback": "prose"
     },
     {
       "requestId": "category-growth-color-sell-in",
@@ -7073,7 +7258,7 @@
         "Netronix не производит Kindle; данные не охватывают крупнейший бренд категории.",
         "Абсолютные объёмы не раскрыты — невозможно оценить, растёт или падает база."
       ],
-      "fallback": "table"
+      "fallback": "prose"
     },
     {
       "requestId": "vr-esl-operational-case-metrics",
@@ -7221,7 +7406,7 @@
         "N=2, выборка не репрезентативна; данные не должны визуализироваться как отраслевой benchmark.",
         "Opex не раскрыт в обоих кейсах; capex не раскрыт в Naifeh's — реальный payback может отличаться от заявленного."
       ],
-      "fallback": "table"
+      "fallback": "prose"
     },
     {
       "requestId": "visual-technical-tradeoffs-matrix",
@@ -7323,7 +7508,7 @@
         "Ряд не должен визуализироваться вместе с оценками рынка конечных устройств (e-reader, ESL) без явного разделения шкал и оговорки о разных уровнях цепочки создания стоимости.",
         "2025 год — предварительное раскрытие (Board-approved), не аудировано. Полный годовой отчёт ожидается позднее в 2026 году."
       ],
-      "fallback": "table"
+      "fallback": "prose"
     },
     {
       "requestId": "pew-ownership-baseline-gap",
@@ -7477,7 +7662,7 @@
       "limitations": [
         "После 2016 года отсутствуют репрезентативные опросы владения e-reader в США, сопоставимые с рядом Pew. Ни один из известных источников (Statista, Gallup, Harris Poll, YouGov) не опубликовал методологически сопоставимый замер для всех взрослых американцев 18+ после 2016 года"
       ],
-      "fallback": "table"
+      "fallback": "prose"
     }
   ]
 }
