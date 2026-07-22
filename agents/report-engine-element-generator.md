@@ -1,8 +1,8 @@
 ---
 name: report-engine-element-generator
 description: Generates typed editorial and ECharts-semantic visual blocks for one Report Engine section.
-tools: read, write
-model: deepseek/deepseek-v4-pro
+toolset: authoring
+role: worker
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

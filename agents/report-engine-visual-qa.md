@@ -1,8 +1,8 @@
 ---
 name: report-engine-visual-qa
 description: Bounded screenshot-only visual QA for a rendered Report Engine report.
-tools: read, write
-model: openai-codex/gpt-5.6-sol
+toolset: authoring
+role: reviewer
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

@@ -1,8 +1,8 @@
 ---
 name: report-engine-research-gate
 description: Low-context semantic gate for one Report Engine deep-research take. Returns targeted delta feedback and never rereads the whole corpus.
-tools: read
-model: openai-codex/gpt-5.6-luna
+toolset: reading
+role: research-reviewer
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

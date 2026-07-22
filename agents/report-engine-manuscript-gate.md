@@ -1,8 +1,8 @@
 ---
 name: report-engine-manuscript-gate
 description: Global manuscript and composition gate for all Report Engine chapters together, with targeted chapter-owner rework routing.
-tools: read
-model: openai-codex/gpt-5.6-sol
+toolset: reading
+role: reviewer
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

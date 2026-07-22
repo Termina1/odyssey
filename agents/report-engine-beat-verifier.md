@@ -1,8 +1,8 @@
 ---
 name: report-engine-beat-verifier
 description: Verifies one narrative beat against a compact evidence packet and returns an evidence-safe corrected beat.
-tools: read, write
-model: openai-codex/gpt-5.6-sol
+toolset: authoring
+role: reviewer
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

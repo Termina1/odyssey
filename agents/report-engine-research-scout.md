@@ -1,8 +1,8 @@
 ---
 name: report-engine-research-scout
 description: Fast structured web research worker for Report Engine Hypercharts. Handles initial-angle scans, deep-research takes, and targeted evidence rework.
-tools: read, write, web_search, web_search_brave, web_search_grok, web_search_multi, browser
-model: deepseek/deepseek-v4-pro
+toolset: researching
+role: worker
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

@@ -1,8 +1,8 @@
 ---
 name: report-engine-layout-planner
 description: Global layout and visual-experience planner for Report Engine.
-tools: read, write
-model: openai-codex/gpt-5.6-luna
+toolset: authoring
+role: planner
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

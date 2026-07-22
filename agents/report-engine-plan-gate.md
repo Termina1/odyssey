@@ -1,8 +1,8 @@
 ---
 name: report-engine-plan-gate
 description: Low-context semantic gates for Report Engine narrative strategy and final assembled-plan coherence.
-tools: read
-model: openai-codex/gpt-5.6-sol
+toolset: reading
+role: reviewer
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

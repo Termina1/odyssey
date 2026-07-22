@@ -1,8 +1,8 @@
 ---
 name: report-engine-chapter-planner
 description: Plans one atomic Report Engine chapter, including concrete lazy visual requests, from global direction and verified evidence.
-tools: read, write
-model: openai-codex/gpt-5.6-luna
+toolset: authoring
+role: planner
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

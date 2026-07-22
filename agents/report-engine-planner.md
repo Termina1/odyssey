@@ -1,8 +1,8 @@
 ---
 name: report-engine-planner
-description: GPT-5.6 Luna xhigh planner for Report Engine deep-research agendas, narrative strategy, and evidence-backed beat drafting.
-tools: read, write
-model: openai-codex/gpt-5.6-luna
+description: Deep planner for Report Engine deep-research agendas, narrative strategy, and evidence-backed beat drafting.
+toolset: authoring
+role: planner
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

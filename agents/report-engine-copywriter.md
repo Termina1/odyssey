@@ -1,8 +1,8 @@
 ---
 name: report-engine-copywriter
 description: Turns one verified Report Engine section and its generated elements into polished evidence-led copy.
-tools: read, write
-model: deepseek/deepseek-v4-pro
+toolset: authoring
+role: worker
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

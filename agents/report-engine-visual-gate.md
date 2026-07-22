@@ -1,8 +1,8 @@
 ---
 name: report-engine-visual-gate
-description: Per-request Sol vision/data gate for Report Engine visual inputs.
-tools: read
-model: openai-codex/gpt-5.6-sol
+description: Per-request vision/data gate for Report Engine visual inputs.
+toolset: reading
+role: reviewer
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false

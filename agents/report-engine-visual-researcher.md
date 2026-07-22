@@ -1,8 +1,8 @@
 ---
 name: report-engine-visual-researcher
 description: Lazy on-demand dataset and image acquisition agent for selected Report Engine visual requests.
-tools: read, write, web_search, web_search_brave, web_search_grok, web_search_multi, browser
-model: deepseek/deepseek-v4-pro
+toolset: researching
+role: worker
 thinking: xhigh
 systemPromptMode: replace
 inheritProjectContext: false
