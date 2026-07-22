@@ -2,7 +2,7 @@
 
 ## Contracts (`contracts/`)
 
-- `index.ts` — every artifact and reply schema as Zod, with inferred TypeScript types. Schemas come in pairs: the base schema (e.g. `NarrativeStrategy`) and a registered `…Output` runtime contract (e.g. `NarrativeStrategyOutput`) used by the chart for replies and shaped artifacts. `tests/chart-contract-coverage.test.ts` walks the parsed chart AST and asserts that **every** JSON reply and shaped artifact in `chart.ts` carries a registered exact runtime contract — adding a state with an unregistered schema fails the suite.
+- `index.ts` — every artifact and reply schema as Zod, with inferred TypeScript types. Schemas come in pairs: the base schema (e.g. `NarrativeStrategy`) and a registered `…Output` runtime contract (e.g. `NarrativeStrategyOutput`) used by the chart for replies and shaped artifacts. Registration is enforced at runtime by the hyperchart schema registry, and the mock run (`tests/mock-run.test.ts`) executes the whole chart against that registry — a state with an unregistered or mismatched contract fails the run.
 - `constants.ts` — the two knob tables, single source of truth for every cap ([running.md](running.md#arguments)): `RESEARCH_CAPS` (per-depth take counts and per-take source/finding caps) and `PRODUCTION_CAPS` (per-polish rewrite and QA budgets).
 - `runtime.ts` — parsing helpers (`parseJsonFile`, `parseJsonText`, `requiredEnv`, `emit`, `writeJsonArtifact`) that turn Zod failures into actionable, path-qualified error messages.
 

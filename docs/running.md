@@ -93,11 +93,12 @@ Rewind takes a backup first and can target a state path (`state: "plan.verify-be
 
 ```bash
 npm test                     # typecheck + all suites
-npm run test:contracts       # contract coverage over the parsed chart AST + contract/budget unit tests
+npm run test:chart           # mock-runner run of the full chart: scripted agents, real scripts/guards/renderer
+npm run test:scripts         # deterministic script behavior: cap routing, budgets, guard verdicts
 npm run test:renderer        # render-model + renderer unit tests
 npm run test:eink            # render the e-ink example + Playwright responsive/a11y checks
 npm run test:workflow-fixture# drives write-stage scripts and guards over a fixture chapter
 npm run check                # biome format + lint + import organization
 ```
 
-`tests/chart-contract-coverage.test.ts` is the one to remember when editing `chart.ts` or `contracts/constants.ts`: it parses the chart AST and asserts that every reply and shaped artifact carries a registered runtime contract (with exact counts, so adding states forces a conscious update), that every script/guard invocation uses the workflow-local `tsx` binary by absolute path, and that agent prompt bodies still quote the hard caps from `constants.ts` — changing a cap without updating the prompts fails the suite.
+`tests/mock-run.test.ts` is the one to remember when editing `chart.ts`: it executes the entire chart on the hyperchart runtime with scripted agents — every deterministic script, guard, router, budget, contract registration, and the renderer run for real, including one deliberate research-gate BLOCK so the retry lane executes. A broken transition, an unregistered contract, or a guard that a reasonable artifact can't satisfy fails this test in seconds, without spending a single model token.
