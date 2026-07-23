@@ -21,9 +21,8 @@ Design rules the whole repo follows: agents emit typed JSON only (never HTML/CSS
 Prerequisites:
 
 1. A Hyperchart host (pi extension or Claude Code plugin, both from the pi-hyperchart repo).
-2. pi-hyperchart checked out **next to this repo** — `@surprisal/hyperchart` is a `file:../pi-hyperchart/…` dependency.
-3. `npm install` — chart scripts run through the workflow-local `node_modules/.bin/tsx`.
-4. Chromium only for `report`/`release` polish (`npx playwright install chromium`) — the screenshot-QA loop drives a headless browser; `draft` runs without it.
+2. `npm install` — installs the published `@surprisal/hyperchart` package and the chart scripts' workflow-local `node_modules/.bin/tsx`.
+3. Chromium only for `report`/`release` polish (`npx playwright install chromium`) — the screenshot-QA loop drives a headless browser; `draft` runs without it.
 
 ```bash
 npm install
